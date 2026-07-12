@@ -54,6 +54,7 @@ export function hasAnyPermission(role, permissions = []) {
 }
 
 export function getRoleLandingRoute(role) {
+  if (!role) return ROUTES.DASHBOARD
   return ROLE_LANDING_ROUTES[role] || ROUTES.DASHBOARD
 }
 
@@ -63,7 +64,7 @@ export function getStatusLabel(status) {
 }
 
 export function getRoleLabel(role) {
-  if (!role) return '—'
+  if (!role) return 'Not assigned'
   return ROLE_LABELS[role] || humanizeEnum(role)
 }
 

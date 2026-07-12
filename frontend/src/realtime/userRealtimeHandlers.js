@@ -69,9 +69,20 @@ export function registerUserRealtimeHandlers(socket, queryClient) {
   socket.on(SOCKET_EVENTS.USER_UPDATED, onUpdated)
   socket.on(SOCKET_EVENTS.USER_STATUS_CHANGED, onStatusChanged)
 
+  const onSessionChanged = createGuardedHandler(queryClient, (_client, payload) => {
+    const user = extractUser(payload) || unwrapUserResponse(payload)
+    if (!user?.id) return
+    // One-to-one session sync for the authenticated user only.
+    // Never contains password fields; never triggers REST from this handler.
+    syncCurrentUserFromEvent(user)
+  })
+
+  socket.on(SOCKET_EVENTS.AUTH_SESSION_CHANGED, onSessionChanged)
+
   return () => {
     socket.off(SOCKET_EVENTS.USER_CREATED, onCreated)
     socket.off(SOCKET_EVENTS.USER_UPDATED, onUpdated)
     socket.off(SOCKET_EVENTS.USER_STATUS_CHANGED, onStatusChanged)
+    socket.off(SOCKET_EVENTS.AUTH_SESSION_CHANGED, onSessionChanged)
   }
 }

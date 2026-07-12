@@ -6,6 +6,19 @@ import {
   fromApiSession,
   toApiRequest,
 } from '../mappers/authMapper'
+import { fromApiEnvelope } from '../mappers/apiEnvelope'
+
+export async function register(payload) {
+  if (isMockMode()) {
+    return authMockRepository.register(payload)
+  }
+
+  const { data } = await apiClient.post(
+    ENDPOINTS.AUTH.REGISTER,
+    toApiRequest(payload),
+  )
+  return fromApiEnvelope(data)
+}
 
 export async function login(credentials) {
   if (isMockMode()) {

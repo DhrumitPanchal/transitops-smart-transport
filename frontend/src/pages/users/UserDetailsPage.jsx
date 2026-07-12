@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Pencil, UserCog } from 'lucide-react'
+import { CheckCircle2, Pencil, UserCog } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageContainer from '../../components/common/PageContainer'
 import PageHeader from '../../components/common/PageHeader'
@@ -12,14 +12,18 @@ import PermissionGate from '../../components/common/PermissionGate'
 import ErrorState from '../../components/feedback/ErrorState'
 import TableSkeleton from '../../components/tables/TableSkeleton'
 import ChangeUserStatusDialog from '../../features/users/ChangeUserStatusDialog'
-import { useUser, useChangeUserStatus } from '../../hooks/users'
+import ApproveUserDialog from './ApproveUserDialog'
+import {
+  useUser,
+  useChangeUserStatus,
+  useApproveUser,
+} from '../../hooks/users'
 import { useAuth } from '../../hooks/useAuth'
 import { getUserErrorMessage } from '../../features/users/userErrors'
 import { PERMISSIONS } from '../../constants/permissions'
 import { ROUTES } from '../../constants/routes'
-import { ROLE_LABELS } from '../../constants/roles'
 import { USER_STATUS } from '../../constants/statuses'
-import { buildPath } from '../../utils/helpers'
+import { buildPath, getRoleLabel } from '../../utils/helpers'
 import { formatDateTime } from '../../utils/formatters'
 import { useDisclosure } from '../../hooks/useDisclosure'
 import { groupPermissions } from '../../utils/permissionGroups'
@@ -41,17 +45,25 @@ export default function UserDetailsPage() {
   const { user: currentUser } = useAuth()
   const userQuery = useUser(id)
   const statusMutation = useChangeUserStatus()
+  const approveMutation = useApproveUser()
   const statusDialog = useDisclosure()
+  const approveDialog = useDisclosure()
   const [actionError, setActionError] = useState(null)
 
   const record = userQuery.data?.data
+  const isPending = record?.status === USER_STATUS.PENDING
 
   const handleStatusChange = async () => {
     if (!record || statusMutation.isPending) return
     const nextStatus =
-      record.status === USER_STATUS.ACTIVE
-        ? USER_STATUS.INACTIVE
-        : USER_STATUS.ACTIVE
+      record.status === USER_STATUS.INACTIVE
+        ? USER_STATUS.ACTIVE
+        : USER_STATUS.INACTIVE
+
+    if (record.status === USER_STATUS.PENDING && nextStatus === USER_STATUS.ACTIVE) {
+      setActionError('Use Approve to assign a role and activate this account.')
+      return
+    }
 
     try {
       await statusMutation.mutateAsync({ id: record.id, status: nextStatus })
@@ -63,6 +75,17 @@ export default function UserDetailsPage() {
     } catch (error) {
       setActionError(getUserErrorMessage(error))
     }
+  }
+
+  const handleApprove = async (values) => {
+    if (!record || approveMutation.isPending) return
+    await approveMutation.mutateAsync({
+      id: record.id,
+      payload: { role: values.role },
+    })
+    toast.success('User approved successfully.')
+    approveDialog.close()
+    setActionError(null)
   }
 
   if (userQuery.isLoading) {
@@ -89,7 +112,7 @@ export default function UserDetailsPage() {
 
   const permissionGroups = groupPermissions(record.permissions || [])
   const nextLabel =
-    record.status === USER_STATUS.ACTIVE ? 'Deactivate' : 'Activate'
+    record.status === USER_STATUS.INACTIVE ? 'Activate' : 'Deactivate'
 
   return (
     <PageContainer>
@@ -98,13 +121,27 @@ export default function UserDetailsPage() {
         description={record.email}
         actions={
           <div className="flex flex-wrap gap-2">
-            <PermissionGate permission={PERMISSIONS.USERS_EDIT}>
-              <Link to={buildPath(ROUTES.ADMIN_USER_EDIT, { id: record.id })}>
-                <Button variant="secondary" icon={Pencil}>
-                  Edit
+            {isPending ? (
+              <PermissionGate permission={PERMISSIONS.USERS_CHANGE_STATUS}>
+                <Button
+                  icon={CheckCircle2}
+                  onClick={() => {
+                    setActionError(null)
+                    approveDialog.open()
+                  }}
+                >
+                  Approve
                 </Button>
-              </Link>
-            </PermissionGate>
+              </PermissionGate>
+            ) : (
+              <PermissionGate permission={PERMISSIONS.USERS_EDIT}>
+                <Link to={buildPath(ROUTES.ADMIN_USER_EDIT, { id: record.id })}>
+                  <Button variant="secondary" icon={Pencil}>
+                    Edit
+                  </Button>
+                </Link>
+              </PermissionGate>
+            )}
             <PermissionGate permission={PERMISSIONS.USERS_CHANGE_STATUS}>
               <Button
                 variant="secondary"
@@ -133,9 +170,7 @@ export default function UserDetailsPage() {
           <dl>
             <DetailItem label="Name">{record.name}</DetailItem>
             <DetailItem label="Email">{record.email}</DetailItem>
-            <DetailItem label="Role">
-              {ROLE_LABELS[record.role] || record.role}
-            </DetailItem>
+            <DetailItem label="Role">{getRoleLabel(record.role)}</DetailItem>
             <DetailItem label="Status">
               <StatusBadge status={record.status} />
             </DetailItem>
@@ -154,23 +189,31 @@ export default function UserDetailsPage() {
             description="Resolved from the assigned role. Passwords are never exposed."
           />
           <div className="mt-3 space-y-4">
-            {permissionGroups.map((group) => (
-              <div key={group.key}>
-                <p className="text-sm font-medium text-slate-800">
-                  {group.label}
-                </p>
-                <ul className="mt-1 flex flex-wrap gap-2">
-                  {group.items.map((item) => (
-                    <li
-                      key={item.key}
-                      className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700"
-                    >
-                      {item.key}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            {permissionGroups.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                {isPending
+                  ? 'No permissions until this account is approved.'
+                  : 'No permissions assigned.'}
+              </p>
+            ) : (
+              permissionGroups.map((group) => (
+                <div key={group.key}>
+                  <p className="text-sm font-medium text-slate-800">
+                    {group.label}
+                  </p>
+                  <ul className="mt-1 flex flex-wrap gap-2">
+                    {group.items.map((item) => (
+                      <li
+                        key={item.key}
+                        className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700"
+                      >
+                        {item.key}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
           </div>
         </Card>
       </div>
@@ -187,6 +230,20 @@ export default function UserDetailsPage() {
           setActionError(null)
         }}
         onConfirm={handleStatusChange}
+      />
+
+      <ApproveUserDialog
+        open={approveDialog.isOpen}
+        user={record}
+        currentUserId={currentUser?.id}
+        loading={approveMutation.isPending}
+        errorMessage={actionError}
+        onClose={() => {
+          if (approveMutation.isPending) return
+          approveDialog.close()
+          setActionError(null)
+        }}
+        onConfirm={handleApprove}
       />
     </PageContainer>
   )

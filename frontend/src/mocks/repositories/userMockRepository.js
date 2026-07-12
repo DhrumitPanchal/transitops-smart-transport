@@ -2,7 +2,12 @@ import { ApiError } from '../../api/apiError'
 import { ROLES } from '../../constants/roles'
 import { USER_STATUS } from '../../constants/statuses'
 import { mockDelay } from '../mockDelay'
-import { getDb, toPublicUser } from '../db'
+import {
+  getDb,
+  syncCredentialEmail,
+  toPublicUser,
+  upsertCredential,
+} from '../mockDatabase'
 import {
   applySearch,
   applySort,
@@ -34,6 +39,16 @@ function assertNoPasswordLeak(record) {
   return clone
 }
 
+function createdUserResponse(user) {
+  return {
+    success: true,
+    message: 'User created successfully.',
+    data: {
+      user: assertNoPasswordLeak(toPublicUser(user)),
+    },
+  }
+}
+
 export const userMockRepository = {
   async list(query = {}) {
     await mockDelay()
@@ -63,21 +78,33 @@ export const userMockRepository = {
     const email = normalizeEmail(payload.email)
     const password = String(payload.password || '')
 
-    if (!password || password.length < 6) {
+    if (!email || !password) {
+      throw new ApiError({
+        status: 400,
+        code: 'VALIDATION_ERROR',
+        message: 'Required credentials are missing',
+        fieldErrors: {
+          ...(email ? {} : { email: 'Email is required' }),
+          ...(password ? {} : { password: 'Password is required' }),
+        },
+      })
+    }
+
+    if (password.length < 6) {
       throw new ApiError({
         status: 400,
         code: 'PASSWORD_REQUIRED',
-        message: 'Password is required',
-        fieldErrors: { password: 'Password is required' },
+        message: 'Password must be at least 6 characters',
+        fieldErrors: { password: 'Password must be at least 6 characters' },
       })
     }
 
     if (db.users.some((item) => normalizeEmail(item.email) === email)) {
       throw new ApiError({
         status: 409,
-        code: 'DUPLICATE_EMAIL',
-        message: 'User email must be unique',
-        fieldErrors: { email: 'User email must be unique' },
+        code: 'EMAIL_ALREADY_EXISTS',
+        message: 'A user with this email already exists.',
+        fieldErrors: { email: 'This email is already registered.' },
       })
     }
 
@@ -87,6 +114,16 @@ export const userMockRepository = {
         code: 'INVALID_ROLE',
         message: 'Invalid role',
         fieldErrors: { role: 'Invalid role' },
+      })
+    }
+
+    const roleExists = db.roles.some((role) => role.key === payload.role)
+    if (!roleExists) {
+      throw new ApiError({
+        status: 400,
+        code: 'INVALID_ROLE',
+        message: 'Role does not exist',
+        fieldErrors: { role: 'Role does not exist' },
       })
     }
 
@@ -112,11 +149,15 @@ export const userMockRepository = {
       createdBy: currentUser.id,
     }
 
-    // Store credential separately — never on the user record / API response
-    authMockRepository.registerCredential(email, password)
+    // Shared credential store — never on the user profile / API response
+    upsertCredential({
+      userId: user.id,
+      email,
+      password,
+    })
     db.users.unshift(user)
 
-    return singleResponse(assertNoPasswordLeak(toPublicUser(user)))
+    return createdUserResponse(user)
   },
 
   async update(id, payload) {
@@ -133,9 +174,9 @@ export const userMockRepository = {
     ) {
       throw new ApiError({
         status: 409,
-        code: 'DUPLICATE_EMAIL',
-        message: 'User email must be unique',
-        fieldErrors: { email: 'User email must be unique' },
+        code: 'EMAIL_ALREADY_EXISTS',
+        message: 'A user with this email already exists.',
+        fieldErrors: { email: 'This email is already registered.' },
       })
     }
 
@@ -161,7 +202,8 @@ export const userMockRepository = {
       updatedAt: new Date().toISOString(),
     })
 
-    // Ignore any password fields on update — never persist onto user object
+    syncCredentialEmail(user.id, email)
+
     return singleResponse(assertNoPasswordLeak(toPublicUser(user)))
   },
 
@@ -190,8 +232,87 @@ export const userMockRepository = {
       })
     }
 
+    // Approving PENDING requires role assignment via approve()
+    if (
+      user.status === USER_STATUS.PENDING &&
+      status === USER_STATUS.ACTIVE &&
+      !user.role
+    ) {
+      throw new ApiError({
+        status: 422,
+        code: 'INVALID_ROLE',
+        message: 'Select a valid role.',
+        fieldErrors: { role: 'Select a valid role.' },
+      })
+    }
+
     user.status = status
     user.updatedAt = new Date().toISOString()
     return singleResponse(assertNoPasswordLeak(toPublicUser(user)))
+  },
+
+  async approve(id, payload = {}) {
+    await mockDelay()
+    const currentUser = authMockRepository.requireSessionUser()
+    const db = getDb()
+    const user = findUserOrThrow(id)
+
+    if (String(currentUser.id) === String(user.id)) {
+      throw new ApiError({
+        status: 403,
+        code: 'CANNOT_APPROVE_SELF',
+        message: 'You cannot approve your own account.',
+      })
+    }
+
+    if (user.status === USER_STATUS.ACTIVE && user.role) {
+      throw new ApiError({
+        status: 409,
+        code: 'USER_ALREADY_ACTIVE',
+        message: 'This user is already active.',
+      })
+    }
+
+    if (user.status !== USER_STATUS.PENDING) {
+      throw new ApiError({
+        status: 409,
+        code: 'USER_ALREADY_ACTIVE',
+        message: 'This user is already active.',
+      })
+    }
+
+    const role = payload.role
+    if (!Object.values(ROLES).includes(role)) {
+      throw new ApiError({
+        status: 422,
+        code: 'INVALID_ROLE',
+        message: 'Select a valid role.',
+        fieldErrors: { role: 'Select a valid role.' },
+      })
+    }
+
+    const roleExists = db.roles.some((item) => item.key === role)
+    if (!roleExists) {
+      throw new ApiError({
+        status: 422,
+        code: 'INVALID_ROLE',
+        message: 'Select a valid role.',
+        fieldErrors: { role: 'Select a valid role.' },
+      })
+    }
+
+    user.role = role
+    user.status = USER_STATUS.ACTIVE
+    user.updatedAt = new Date().toISOString()
+
+    const safeUser = assertNoPasswordLeak(toPublicUser(user))
+
+    return {
+      success: true,
+      message: 'User approved successfully.',
+      data: {
+        user: safeUser,
+      },
+    }
   },
 }

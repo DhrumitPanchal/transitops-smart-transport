@@ -30,6 +30,7 @@ export const SOCKET_EVENTS = {
   USER_CREATED: 'user.created',
   USER_UPDATED: 'user.updated',
   USER_STATUS_CHANGED: 'user.status_changed',
+  AUTH_SESSION_CHANGED: 'auth.session_changed',
 
   ROLE_PERMISSIONS_UPDATED: 'role.permissions_updated',
 }

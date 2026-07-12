@@ -3,6 +3,7 @@ export const ENDPOINTS = {
     LOGIN: '/auth/login',
     LOGOUT: '/auth/logout',
     ME: '/auth/me',
+    REGISTER: '/auth/register',
   },
   DASHBOARD: {
     SUMMARY: '/dashboard/summary',
@@ -48,6 +49,7 @@ export const ENDPOINTS = {
     BASE: '/users',
     BY_ID: (id) => `/users/${id}`,
     STATUS: (id) => `/users/${id}/status`,
+    APPROVE: (id) => `/users/${id}/approve`,
   },
   ROLES: {
     BASE: '/roles',

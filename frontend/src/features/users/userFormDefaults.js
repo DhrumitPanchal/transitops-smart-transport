@@ -18,8 +18,10 @@ export const DEFAULT_USER_EDIT_VALUES = {
 
 export function normalizeUserCreatePayload(values = {}) {
   return {
-    name: values.name,
-    email: values.email,
+    name: String(values.name || '').trim(),
+    email: String(values.email || '')
+      .trim()
+      .toLowerCase(),
     role: values.role,
     status: values.status,
     password: values.password,

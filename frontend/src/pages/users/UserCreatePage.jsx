@@ -16,7 +16,7 @@ export default function UserCreatePage() {
   const handleSubmit = async (values) => {
     const response = await createMutation.mutateAsync(values)
     const user = unwrapUserResponse(response)
-    toast.success('User created')
+    toast.success('User created successfully.')
     navigate(
       user?.id
         ? buildPath(ROUTES.ADMIN_USER_DETAIL, { id: user.id })

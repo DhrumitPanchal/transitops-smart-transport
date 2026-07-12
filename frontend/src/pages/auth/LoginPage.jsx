@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useNavigate } from 'react-router-dom'
 import { loginSchema } from '../../validations/authValidation'
 import { useAuth } from '../../hooks/useAuth'
 import { getDemoAccounts } from '../../services/authService'
 import { getRoleLandingRoute, getRoleLabel } from '../../utils/helpers'
 import env from '../../config/env'
+import { ROUTES } from '../../constants/routes'
+import { USER_STATUS } from '../../constants/statuses'
 import EmailField from '../../components/forms/EmailField'
 import PasswordField from '../../components/forms/PasswordField'
 import Button from '../../components/common/Button'
@@ -50,10 +52,19 @@ export default function LoginPage() {
 
     try {
       const result = await login(values)
-      navigate(getRoleLandingRoute(result.user.role), { replace: true })
+      const nextUser = result.user
+      if (nextUser?.status === USER_STATUS.PENDING) {
+        navigate(ROUTES.DASHBOARD, { replace: true })
+        return
+      }
+      if (nextUser?.status === USER_STATUS.ACTIVE && !nextUser?.role) {
+        navigate(ROUTES.PROFILE, { replace: true })
+        return
+      }
+      navigate(getRoleLandingRoute(nextUser.role), { replace: true })
     } catch (error) {
       setError('root', {
-        message: error.message || 'Invalid email or password',
+        message: error?.message || 'Invalid email or password.',
       })
     } finally {
       setSubmitting(false)
@@ -120,6 +131,16 @@ export default function LoginPage() {
           Sign in
         </Button>
       </form>
+
+      <p className="mt-6 text-center text-sm text-slate-600">
+        Don&apos;t have an account?{' '}
+        <Link
+          to={ROUTES.REGISTER}
+          className="font-medium text-teal-700 hover:underline"
+        >
+          Register
+        </Link>
+      </p>
 
       {env.useMocks && demoAccounts.length > 0 ? (
         <div className="mt-8 border-t border-slate-200 pt-6">

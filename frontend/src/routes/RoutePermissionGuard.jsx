@@ -4,6 +4,10 @@ import { useAuth } from '../hooks/useAuth'
 import { ROUTES } from '../constants/routes'
 import { PERMISSIONS } from '../constants/permissions'
 import { ROLES } from '../constants/roles'
+import { USER_STATUS } from '../constants/statuses'
+
+const ALLOWED_PENDING_PATHS = [ROUTES.DASHBOARD, ROUTES.PROFILE, ROUTES.UNAUTHORIZED]
+const ALLOWED_ACTIVE_NO_ROLE_PATHS = [ROUTES.PROFILE, ROUTES.UNAUTHORIZED]
 
 const ROUTE_PERMISSION_RULES = [
   { path: ROUTES.DASHBOARD, permission: PERMISSIONS.DASHBOARD_VIEW },
@@ -77,19 +81,39 @@ function resolveRouteRule(pathname) {
   )
 }
 
+function pathAllowed(pathname, allowed) {
+  return allowed.some((path) => matchPath({ path, end: true }, pathname))
+}
+
 /**
  * When auth permissions change in realtime, redirect away from pages
  * the user can no longer access — without a full browser reload.
  */
 export default function RoutePermissionGuard({ children }) {
-  const { hasPermission, isAuthenticated, user } = useAuth()
+  const { hasPermission, isAuthenticated, user, isPendingApproval } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
   useEffect(() => {
     if (!isAuthenticated || !user) return
 
-    const rule = resolveRouteRule(location.pathname)
+    const pathname = location.pathname
+
+    if (isPendingApproval) {
+      if (!pathAllowed(pathname, ALLOWED_PENDING_PATHS)) {
+        navigate(ROUTES.DASHBOARD, { replace: true })
+      }
+      return
+    }
+
+    if (user.status === USER_STATUS.ACTIVE && !user.role) {
+      if (!pathAllowed(pathname, ALLOWED_ACTIVE_NO_ROLE_PATHS)) {
+        navigate(ROUTES.PROFILE, { replace: true })
+      }
+      return
+    }
+
+    const rule = resolveRouteRule(pathname)
     if (!rule) return
 
     if (rule.roles?.length && !rule.roles.includes(user.role)) {
@@ -100,7 +124,14 @@ export default function RoutePermissionGuard({ children }) {
     if (rule.permission && !hasPermission(rule.permission)) {
       navigate(ROUTES.UNAUTHORIZED, { replace: true })
     }
-  }, [hasPermission, isAuthenticated, location.pathname, navigate, user])
+  }, [
+    hasPermission,
+    isAuthenticated,
+    isPendingApproval,
+    location.pathname,
+    navigate,
+    user,
+  ])
 
   return children
 }

@@ -9,7 +9,12 @@ import PermissionGate from '../../components/common/PermissionGate'
 import UserFilters from '../../features/users/UserFilters'
 import UserTable from '../../features/users/UserTable'
 import ChangeUserStatusDialog from '../../features/users/ChangeUserStatusDialog'
-import { useUsers, useChangeUserStatus } from '../../hooks/users'
+import ApproveUserDialog from './ApproveUserDialog'
+import {
+  useUsers,
+  useChangeUserStatus,
+  useApproveUser,
+} from '../../hooks/users'
 import { useAuth } from '../../hooks/useAuth'
 import { getUserErrorMessage } from '../../features/users/userErrors'
 import { PERMISSIONS } from '../../constants/permissions'
@@ -48,7 +53,9 @@ export default function UserListPage() {
   const [actionError, setActionError] = useState(null)
 
   const statusDialog = useDisclosure()
+  const approveDialog = useDisclosure()
   const statusMutation = useChangeUserStatus()
+  const approveMutation = useApproveUser()
 
   const queryParams = useMemo(() => cleanParams(filters), [filters])
   const usersQuery = useUsers(queryParams)
@@ -84,6 +91,12 @@ export default function UserListPage() {
     statusDialog.open()
   }
 
+  const openApprove = (record) => {
+    setSelectedUser(record)
+    setActionError(null)
+    approveDialog.open()
+  }
+
   const closeStatus = () => {
     if (statusMutation.isPending) return
     statusDialog.close()
@@ -91,12 +104,27 @@ export default function UserListPage() {
     setActionError(null)
   }
 
+  const closeApprove = () => {
+    if (approveMutation.isPending) return
+    approveDialog.close()
+    setSelectedUser(null)
+    setActionError(null)
+  }
+
   const handleStatusChange = async () => {
     if (!selectedUser || statusMutation.isPending) return
     const nextStatus =
-      selectedUser.status === USER_STATUS.ACTIVE
-        ? USER_STATUS.INACTIVE
-        : USER_STATUS.ACTIVE
+      selectedUser.status === USER_STATUS.INACTIVE
+        ? USER_STATUS.ACTIVE
+        : USER_STATUS.INACTIVE
+
+    if (
+      selectedUser.status === USER_STATUS.PENDING &&
+      nextStatus === USER_STATUS.ACTIVE
+    ) {
+      setActionError('Use Approve to assign a role and activate this account.')
+      return
+    }
 
     try {
       await statusMutation.mutateAsync({
@@ -112,11 +140,21 @@ export default function UserListPage() {
     }
   }
 
+  const handleApprove = async (values) => {
+    if (!selectedUser || approveMutation.isPending) return
+    await approveMutation.mutateAsync({
+      id: selectedUser.id,
+      payload: { role: values.role },
+    })
+    toast.success('User approved successfully.')
+    closeApprove()
+  }
+
   return (
     <PageContainer>
       <PageHeader
         title="Users"
-        description="Create accounts and manage ACTIVE / INACTIVE access. Users are never permanently deleted."
+        description="Review pending registrations, create accounts, and manage ACTIVE / INACTIVE access. Users are never permanently deleted."
         actions={
           <PermissionGate permission={PERMISSIONS.USERS_CREATE}>
             <Link to={ROUTES.ADMIN_USERS_NEW}>
@@ -149,6 +187,7 @@ export default function UserListPage() {
           setFilters((prev) => ({ ...prev, pageSize, page: 1 }))
         }
         onChangeStatus={openStatus}
+        onApprove={openApprove}
         emptyAction={
           <PermissionGate permission={PERMISSIONS.USERS_CREATE}>
             <Link to={ROUTES.ADMIN_USERS_NEW}>
@@ -168,6 +207,16 @@ export default function UserListPage() {
         errorMessage={actionError}
         onClose={closeStatus}
         onConfirm={handleStatusChange}
+      />
+
+      <ApproveUserDialog
+        open={approveDialog.isOpen}
+        user={selectedUser}
+        currentUserId={currentUser?.id}
+        loading={approveMutation.isPending}
+        errorMessage={actionError}
+        onClose={closeApprove}
+        onConfirm={handleApprove}
       />
     </PageContainer>
   )

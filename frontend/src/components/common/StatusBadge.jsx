@@ -11,6 +11,7 @@ const STATUS_TONES = {
   OPEN: 'amber',
   DRAFT: 'slate',
   OFF_DUTY: 'slate',
+  PENDING: 'amber',
   INACTIVE: 'slate',
   IN_SHOP: 'amber',
   SUSPENDED: 'red',
