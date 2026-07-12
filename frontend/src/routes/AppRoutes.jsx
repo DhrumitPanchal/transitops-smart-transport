@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from '../layouts/AppLayout'
 import AuthLayout from '../layouts/AuthLayout'
 import ProtectedRoute from './ProtectedRoute'
+import PublicOnlyRoute from './PublicOnlyRoute'
 import PermissionRoute from './PermissionRoute'
 import PageLoader from '../components/feedback/PageLoader'
 import { ROUTES } from '../constants/routes'
@@ -58,10 +59,10 @@ const UnauthorizedPage = lazy(() => import('../pages/UnauthorizedPage'))
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
 
 function RootRedirect() {
-  const { isAuthenticated, isLoading, landingRoute } = useAuth()
+  const { isAuthenticated, isInitializing, landingRoute } = useAuth()
 
-  if (isLoading) {
-    return <PageLoader />
+  if (isInitializing) {
+    return <PageLoader label="Checking session..." />
   }
 
   return (
@@ -75,66 +76,223 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/" element={<RootRedirect />} />
 
-        <Route element={<AuthLayout />}>
-          <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+        <Route element={<PublicOnlyRoute />}>
+          <Route element={<AuthLayout />}>
+            <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+          </Route>
         </Route>
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
-            <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
-
-            <Route path={ROUTES.VEHICLES} element={<VehiclesListPage />} />
-            <Route path={ROUTES.VEHICLES_NEW} element={<VehicleCreatePage />} />
-            <Route path={ROUTES.VEHICLE_DETAIL} element={<VehicleDetailPage />} />
-            <Route path={ROUTES.VEHICLE_EDIT} element={<VehicleEditPage />} />
-
-            <Route path={ROUTES.DRIVERS} element={<DriversListPage />} />
-            <Route path={ROUTES.DRIVERS_NEW} element={<DriverCreatePage />} />
-            <Route path={ROUTES.DRIVER_DETAIL} element={<DriverDetailPage />} />
-            <Route path={ROUTES.DRIVER_EDIT} element={<DriverEditPage />} />
-
-            <Route path={ROUTES.TRIPS} element={<TripsListPage />} />
-            <Route path={ROUTES.TRIPS_NEW} element={<TripCreatePage />} />
-            <Route path={ROUTES.TRIP_DETAIL} element={<TripDetailPage />} />
-            <Route path={ROUTES.TRIP_EDIT} element={<TripEditPage />} />
-
-            <Route path={ROUTES.MAINTENANCE} element={<MaintenanceListPage />} />
-            <Route
-              path={ROUTES.MAINTENANCE_NEW}
-              element={<MaintenanceCreatePage />}
-            />
-            <Route
-              path={ROUTES.MAINTENANCE_DETAIL}
-              element={<MaintenanceDetailPage />}
-            />
-            <Route
-              path={ROUTES.MAINTENANCE_EDIT}
-              element={<MaintenanceEditPage />}
-            />
-
-            <Route path={ROUTES.FUEL} element={<FuelListPage />} />
-            <Route path={ROUTES.FUEL_NEW} element={<FuelCreatePage />} />
-            <Route path={ROUTES.FUEL_DETAIL} element={<FuelDetailPage />} />
-            <Route path={ROUTES.FUEL_EDIT} element={<FuelEditPage />} />
-
-            <Route path={ROUTES.EXPENSES} element={<ExpensesListPage />} />
-            <Route path={ROUTES.EXPENSES_NEW} element={<ExpenseCreatePage />} />
-            <Route path={ROUTES.EXPENSE_DETAIL} element={<ExpenseDetailPage />} />
-            <Route path={ROUTES.EXPENSE_EDIT} element={<ExpenseEditPage />} />
-
-            <Route path={ROUTES.REPORTS} element={<ReportsPage />} />
-            <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
             <Route path={ROUTES.UNAUTHORIZED} element={<UnauthorizedPage />} />
+            <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.DASHBOARD_VIEW} />
+              }
+            >
+              <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.VEHICLES_VIEW} />
+              }
+            >
+              <Route path={ROUTES.VEHICLES} element={<VehiclesListPage />} />
+              <Route
+                path={ROUTES.VEHICLE_DETAIL}
+                element={<VehicleDetailPage />}
+              />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.VEHICLES_CREATE} />
+              }
+            >
+              <Route
+                path={ROUTES.VEHICLES_NEW}
+                element={<VehicleCreatePage />}
+              />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.VEHICLES_EDIT} />
+              }
+            >
+              <Route path={ROUTES.VEHICLE_EDIT} element={<VehicleEditPage />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.DRIVERS_VIEW} />
+              }
+            >
+              <Route path={ROUTES.DRIVERS} element={<DriversListPage />} />
+              <Route path={ROUTES.DRIVER_DETAIL} element={<DriverDetailPage />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.DRIVERS_CREATE} />
+              }
+            >
+              <Route path={ROUTES.DRIVERS_NEW} element={<DriverCreatePage />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.DRIVERS_EDIT} />
+              }
+            >
+              <Route path={ROUTES.DRIVER_EDIT} element={<DriverEditPage />} />
+            </Route>
+
+            <Route
+              element={<PermissionRoute permission={PERMISSIONS.TRIPS_VIEW} />}
+            >
+              <Route path={ROUTES.TRIPS} element={<TripsListPage />} />
+              <Route path={ROUTES.TRIP_DETAIL} element={<TripDetailPage />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.TRIPS_CREATE} />
+              }
+            >
+              <Route path={ROUTES.TRIPS_NEW} element={<TripCreatePage />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.TRIPS_EDIT_DRAFT} />
+              }
+            >
+              <Route path={ROUTES.TRIP_EDIT} element={<TripEditPage />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.MAINTENANCE_VIEW} />
+              }
+            >
+              <Route
+                path={ROUTES.MAINTENANCE}
+                element={<MaintenanceListPage />}
+              />
+              <Route
+                path={ROUTES.MAINTENANCE_DETAIL}
+                element={<MaintenanceDetailPage />}
+              />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.MAINTENANCE_CREATE} />
+              }
+            >
+              <Route
+                path={ROUTES.MAINTENANCE_NEW}
+                element={<MaintenanceCreatePage />}
+              />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.MAINTENANCE_EDIT} />
+              }
+            >
+              <Route
+                path={ROUTES.MAINTENANCE_EDIT}
+                element={<MaintenanceEditPage />}
+              />
+            </Route>
+
+            <Route
+              element={<PermissionRoute permission={PERMISSIONS.FUEL_VIEW} />}
+            >
+              <Route path={ROUTES.FUEL} element={<FuelListPage />} />
+              <Route path={ROUTES.FUEL_DETAIL} element={<FuelDetailPage />} />
+            </Route>
+
+            <Route
+              element={<PermissionRoute permission={PERMISSIONS.FUEL_CREATE} />}
+            >
+              <Route path={ROUTES.FUEL_NEW} element={<FuelCreatePage />} />
+            </Route>
+
+            <Route
+              element={<PermissionRoute permission={PERMISSIONS.FUEL_EDIT} />}
+            >
+              <Route path={ROUTES.FUEL_EDIT} element={<FuelEditPage />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.EXPENSES_VIEW} />
+              }
+            >
+              <Route path={ROUTES.EXPENSES} element={<ExpensesListPage />} />
+              <Route
+                path={ROUTES.EXPENSE_DETAIL}
+                element={<ExpenseDetailPage />}
+              />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.EXPENSES_CREATE} />
+              }
+            >
+              <Route
+                path={ROUTES.EXPENSES_NEW}
+                element={<ExpenseCreatePage />}
+              />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.EXPENSES_EDIT} />
+              }
+            >
+              <Route path={ROUTES.EXPENSE_EDIT} element={<ExpenseEditPage />} />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.REPORTS_VIEW} />
+              }
+            >
+              <Route path={ROUTES.REPORTS} element={<ReportsPage />} />
+            </Route>
 
             <Route
               element={<PermissionRoute permission={PERMISSIONS.USERS_VIEW} />}
             >
               <Route path={ROUTES.ADMIN_USERS} element={<UsersListPage />} />
-              <Route path={ROUTES.ADMIN_USERS_NEW} element={<UserCreatePage />} />
               <Route
                 path={ROUTES.ADMIN_USER_DETAIL}
                 element={<UserDetailPage />}
               />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute permission={PERMISSIONS.USERS_CREATE} />
+              }
+            >
+              <Route
+                path={ROUTES.ADMIN_USERS_NEW}
+                element={<UserCreatePage />}
+              />
+            </Route>
+
+            <Route
+              element={<PermissionRoute permission={PERMISSIONS.USERS_EDIT} />}
+            >
               <Route path={ROUTES.ADMIN_USER_EDIT} element={<UserEditPage />} />
             </Route>
 
@@ -146,6 +304,15 @@ export default function AppRoutes() {
                 path={ROUTES.ADMIN_ROLE_DETAIL}
                 element={<RoleDetailPage />}
               />
+            </Route>
+
+            <Route
+              element={
+                <PermissionRoute
+                  permission={PERMISSIONS.ROLES_EDIT_PERMISSIONS}
+                />
+              }
+            >
               <Route
                 path={ROUTES.ADMIN_ROLE_PERMISSIONS}
                 element={<RolePermissionsPage />}

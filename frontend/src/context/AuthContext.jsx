@@ -5,9 +5,8 @@ import {
   useState,
 } from 'react'
 import * as authService from '../services/authService'
-import env from '../config/env'
+import { isMockMode } from '../services/serviceMode'
 import { setUnauthorizedHandler } from '../api/apiClient'
-import { clearMockSession } from '../mocks/session'
 import {
   getRoleLandingRoute,
   hasAnyPermission as checkAnyPermission,
@@ -15,15 +14,46 @@ import {
 } from '../utils/helpers'
 import { AuthContext } from './authContextInstance'
 
+export { AuthContext }
+
+function unwrapData(payload) {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return payload.data
+  }
+  return payload
+}
+
+function userHasPermission(user, permission) {
+  if (!user || !permission) return false
+
+  if (Array.isArray(user.permissions)) {
+    return user.permissions.includes(permission)
+  }
+
+  return checkPermission(user.role, permission)
+}
+
+function userHasAnyPermission(user, permissions = []) {
+  if (!user || !Array.isArray(permissions) || permissions.length === 0) {
+    return false
+  }
+
+  if (Array.isArray(user.permissions)) {
+    return permissions.some((permission) =>
+      user.permissions.includes(permission),
+    )
+  }
+
+  return checkAnyPermission(user.role, permissions)
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [isBootstrapping, setIsBootstrapping] = useState(true)
+  const [isInitializing, setIsInitializing] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
 
   const clearSession = useCallback(() => {
-    if (env.useMocks) {
-      clearMockSession()
-    }
+    authService.clearMockSession()
     setUser(null)
   }, [])
 
@@ -41,21 +71,23 @@ export function AuthProvider({ children }) {
     let cancelled = false
 
     async function bootstrapAuth() {
-      setIsBootstrapping(true)
+      setIsInitializing(true)
 
-      if (env.useMocks) {
-        clearMockSession()
+      // Mock mode: session lives only in React/module memory.
+      // A refresh starts unauthenticated (may log the mock user out).
+      if (isMockMode()) {
+        authService.clearMockSession()
         if (!cancelled) {
           setUser(null)
-          setIsBootstrapping(false)
+          setIsInitializing(false)
         }
         return
       }
 
       try {
-        const currentUser = await authService.getCurrentUser()
+        const response = await authService.getCurrentUser()
         if (!cancelled) {
-          setUser(currentUser)
+          setUser(unwrapData(response))
         }
       } catch {
         if (!cancelled) {
@@ -63,7 +95,7 @@ export function AuthProvider({ children }) {
         }
       } finally {
         if (!cancelled) {
-          setIsBootstrapping(false)
+          setIsInitializing(false)
         }
       }
     }
@@ -80,9 +112,10 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (credentials) => {
     setIsLoading(true)
     try {
-      const result = await authService.login(credentials)
-      setUser(result.user)
-      return result
+      const response = await authService.login(credentials)
+      const nextUser = unwrapData(response)
+      setUser(nextUser)
+      return { user: nextUser, data: nextUser }
     } finally {
       setIsLoading(false)
     }
@@ -92,6 +125,8 @@ export function AuthProvider({ children }) {
     setIsLoading(true)
     try {
       await authService.logout()
+    } catch {
+      // Always clear local auth state, even if the API logout fails.
     } finally {
       clearSession()
       setIsLoading(false)
@@ -99,13 +134,13 @@ export function AuthProvider({ children }) {
   }, [clearSession])
 
   const hasPermission = useCallback(
-    (permission) => checkPermission(user?.role, permission),
-    [user?.role],
+    (permission) => userHasPermission(user, permission),
+    [user],
   )
 
   const hasAnyPermission = useCallback(
-    (permissions) => checkAnyPermission(user?.role, permissions),
-    [user?.role],
+    (permissions) => userHasAnyPermission(user, permissions),
+    [user],
   )
 
   const landingRoute = useMemo(
@@ -117,8 +152,8 @@ export function AuthProvider({ children }) {
     () => ({
       user,
       isAuthenticated,
-      isLoading: isLoading || isBootstrapping,
-      isBootstrapping,
+      isInitializing,
+      isLoading,
       login,
       logout,
       hasPermission,
@@ -128,8 +163,8 @@ export function AuthProvider({ children }) {
     [
       user,
       isAuthenticated,
+      isInitializing,
       isLoading,
-      isBootstrapping,
       login,
       logout,
       hasPermission,

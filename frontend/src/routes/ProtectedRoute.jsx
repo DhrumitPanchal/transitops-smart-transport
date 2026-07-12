@@ -4,11 +4,11 @@ import { ROUTES } from '../constants/routes'
 import PageLoader from '../components/feedback/PageLoader'
 
 export default function ProtectedRoute() {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isInitializing } = useAuth()
   const location = useLocation()
 
-  if (isLoading) {
-    return <PageLoader />
+  if (isInitializing) {
+    return <PageLoader label="Checking session..." />
   }
 
   if (!isAuthenticated) {

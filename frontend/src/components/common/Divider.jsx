@@ -1,0 +1,17 @@
+import { cn } from '../../utils/helpers'
+
+export default function Divider({ className, label }) {
+  if (label) {
+    return (
+      <div className={cn('flex items-center gap-3', className)}>
+        <div className="h-px flex-1 bg-slate-200" />
+        <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          {label}
+        </span>
+        <div className="h-px flex-1 bg-slate-200" />
+      </div>
+    )
+  }
+
+  return <div className={cn('h-px w-full bg-slate-200', className)} />
+}

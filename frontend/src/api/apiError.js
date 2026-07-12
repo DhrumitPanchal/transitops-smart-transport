@@ -1,10 +1,34 @@
 export class ApiError extends Error {
-  constructor(message, status = 500, errors = null) {
+  constructor({
+    message = 'An unexpected error occurred',
+    status = 500,
+    code = 'INTERNAL_ERROR',
+    fieldErrors = null,
+  } = {}) {
     super(message)
     this.name = 'ApiError'
     this.status = status
-    this.errors = errors
+    this.code = code
+    this.fieldErrors = fieldErrors
   }
+
+  toJSON() {
+    return {
+      status: this.status,
+      code: this.code,
+      message: this.message,
+      fieldErrors: this.fieldErrors,
+    }
+  }
+}
+
+export function createApiError({
+  message,
+  status = 500,
+  code = 'INTERNAL_ERROR',
+  fieldErrors = null,
+} = {}) {
+  return new ApiError({ message, status, code, fieldErrors })
 }
 
 export function getErrorMessage(error) {
@@ -21,4 +45,12 @@ export function getErrorMessage(error) {
   }
 
   return 'An unexpected error occurred'
+}
+
+export function getFieldErrors(error) {
+  if (error instanceof ApiError) {
+    return error.fieldErrors || null
+  }
+
+  return error?.response?.data?.fieldErrors || error?.fieldErrors || null
 }

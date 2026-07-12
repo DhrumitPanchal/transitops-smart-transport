@@ -1,23 +1,33 @@
 import apiClient from '../api/apiClient'
 import { ENDPOINTS } from '../api/endpoints'
-import env from '../config/env'
-import { mockGetRoles } from '../mocks/repositories'
+import { isMockMode } from './serviceMode'
+import { roleMockRepository } from '../mocks/repositories/roleMockRepository'
 
-export async function getRoles(params = {}) {
-  if (env.useMocks) {
-    return mockGetRoles()
+export async function list(params = {}) {
+  if (isMockMode()) {
+    return roleMockRepository.list(params)
   }
 
   const { data } = await apiClient.get(ENDPOINTS.ROLES.BASE, { params })
   return data
 }
 
-export async function createRole(payload) {
-  const { data } = await apiClient.post(ENDPOINTS.ROLES.BASE, payload)
+export async function getById(id) {
+  if (isMockMode()) {
+    return roleMockRepository.getById(id)
+  }
+
+  const { data } = await apiClient.get(ENDPOINTS.ROLES.BY_ID(id))
   return data
 }
 
-export async function updateRole(id, payload) {
-  const { data } = await apiClient.put(ENDPOINTS.ROLES.BY_ID(id), payload)
+export async function updatePermissions(id, permissions) {
+  if (isMockMode()) {
+    return roleMockRepository.updatePermissions(id, permissions)
+  }
+
+  const { data } = await apiClient.put(ENDPOINTS.ROLES.PERMISSIONS(id), {
+    permissions,
+  })
   return data
 }
