@@ -1,80 +1,149 @@
 import { ApiError } from '../../api/apiError'
 import { mockDelay } from '../mockDelay'
-import { getDb, toPublicUser } from '../db'
-import { normalizeEmail, singleResponse } from '../mockHelpers'
+import {
+  findCredentialByEmail,
+  getDb,
+  toPublicUser,
+  upsertCredential,
+} from '../mockDatabase'
+import { createId, normalizeEmail, singleResponse } from '../mockHelpers'
 import { USER_STATUS } from '../../constants/statuses'
 import { ROLE_LABELS, ROLE_LANDING_ROUTES } from '../../constants/roles'
 
-/** In-memory credentials only — never attached to public user payloads. */
-const AUTH_CREDENTIALS = [
-  {
-    email: 'admin@transitops.com',
-    password: 'Admin@123',
-  },
-  {
-    email: 'fleet@transitops.com',
-    password: 'Fleet@123',
-  },
-  {
-    email: 'dispatcher@transitops.com',
-    password: 'Dispatcher@123',
-  },
-  {
-    email: 'safety@transitops.com',
-    password: 'Safety@123',
-  },
-  {
-    email: 'finance@transitops.com',
-    password: 'Finance@123',
-  },
-]
-
-function findCredential(email, password) {
-  const normalized = normalizeEmail(email)
-  return AUTH_CREDENTIALS.find(
-    (item) => item.email === normalized && item.password === password,
-  )
-}
-
 export const authMockRepository = {
-  registerCredential(email, password) {
-    const normalized = normalizeEmail(email)
-    const existing = AUTH_CREDENTIALS.find((item) => item.email === normalized)
-    if (existing) {
-      existing.password = String(password)
-      return
-    }
-    AUTH_CREDENTIALS.push({
-      email: normalized,
-      password: String(password),
-    })
+  registerCredential(userId, email, password) {
+    upsertCredential({ userId, email, password })
   },
 
-  async login({ email, password }) {
+  async register(payload = {}) {
     await mockDelay()
     const db = getDb()
-    const credential = findCredential(email, password)
+    const name = String(payload.name || '').trim()
+    const email = normalizeEmail(payload.email)
+    const password = String(payload.password || '')
 
-    if (!credential) {
+    if (!name || name.length < 2) {
+      throw new ApiError({
+        status: 400,
+        code: 'VALIDATION_ERROR',
+        message: 'Name is required',
+        fieldErrors: { name: 'Name is required' },
+      })
+    }
+
+    if (!email || !password) {
+      throw new ApiError({
+        status: 400,
+        code: 'VALIDATION_ERROR',
+        message: 'Required credentials are missing',
+        fieldErrors: {
+          ...(email ? {} : { email: 'Email is required' }),
+          ...(password ? {} : { password: 'Password is required' }),
+        },
+      })
+    }
+
+    if (password.length < 6) {
+      throw new ApiError({
+        status: 400,
+        code: 'VALIDATION_ERROR',
+        message: 'Password must be at least 6 characters',
+        fieldErrors: { password: 'Password must be at least 6 characters' },
+      })
+    }
+
+    if (db.users.some((item) => normalizeEmail(item.email) === email)) {
+      throw new ApiError({
+        status: 409,
+        code: 'EMAIL_ALREADY_EXISTS',
+        message: 'An account with this email already exists.',
+        fieldErrors: { email: 'This email is already registered.' },
+      })
+    }
+
+    const now = new Date().toISOString()
+    const user = {
+      id: createId('user'),
+      name,
+      email,
+      role: null,
+      status: USER_STATUS.PENDING,
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    upsertCredential({
+      userId: user.id,
+      email,
+      password,
+    })
+    db.users.unshift(user)
+    db.currentUserId = user.id
+
+    return {
+      success: true,
+      message:
+        'Registration successful. Your account is waiting for administrator approval.',
+      data: {
+        user: toPublicUser(user),
+      },
+    }
+  },
+
+  async login({ email, password } = {}) {
+    await mockDelay()
+    const db = getDb()
+
+    if (!email || !password) {
       throw new ApiError({
         status: 401,
         code: 'INVALID_CREDENTIALS',
-        message: 'Invalid email or password',
+        message: 'Invalid email or password.',
       })
     }
 
-    const user = db.users.find(
-      (item) => normalizeEmail(item.email) === credential.email,
-    )
+    const credential = findCredentialByEmail(email)
+    const normalizedPassword = String(password)
 
-    if (!user || user.status !== USER_STATUS.ACTIVE) {
+    if (!credential || credential.password !== normalizedPassword) {
+      throw new ApiError({
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password.',
+      })
+    }
+
+    const user = db.users.find((item) => item.id === credential.userId)
+
+    if (!user) {
+      throw new ApiError({
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password.',
+      })
+    }
+
+    if (user.status === USER_STATUS.INACTIVE) {
       throw new ApiError({
         status: 403,
         code: 'USER_INACTIVE',
-        message: 'This account is inactive',
+        message: 'Your account is inactive. Contact the administrator.',
       })
     }
 
+    if (
+      user.status === USER_STATUS.ACTIVE &&
+      user.role &&
+      !db.roles.some((role) => role.key === user.role)
+    ) {
+      throw new ApiError({
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid email or password.',
+      })
+    }
+
+    // PENDING and ACTIVE (with or without role) may authenticate
     db.currentUserId = user.id
     return singleResponse(toPublicUser(user))
   },
@@ -107,7 +176,7 @@ export const authMockRepository = {
       throw new ApiError({
         status: 403,
         code: 'USER_INACTIVE',
-        message: 'This account is inactive',
+        message: 'Your account is inactive. Contact the administrator.',
       })
     }
 
@@ -117,24 +186,23 @@ export const authMockRepository = {
   getDemoAccounts() {
     const db = getDb()
 
-    return AUTH_CREDENTIALS.filter((credential) =>
-      db.users.some(
-        (item) => normalizeEmail(item.email) === credential.email,
-      ),
-    ).map((credential) => {
-      const user = db.users.find(
-        (item) => normalizeEmail(item.email) === credential.email,
-      )
+    return db.credentials
+      .filter((credential) => {
+        const user = db.users.find((item) => item.id === credential.userId)
+        return user && user.status === USER_STATUS.ACTIVE && user.role
+      })
+      .map((credential) => {
+        const user = db.users.find((item) => item.id === credential.userId)
 
-      return {
-        email: credential.email,
-        password: credential.password,
-        name: user?.name || credential.email,
-        role: user?.role,
-        roleLabel: ROLE_LABELS[user?.role] || user?.role,
-        landingRoute: ROLE_LANDING_ROUTES[user?.role],
-      }
-    })
+        return {
+          email: credential.email,
+          password: credential.password,
+          name: user?.name || credential.email,
+          role: user?.role,
+          roleLabel: ROLE_LABELS[user?.role] || user?.role,
+          landingRoute: ROLE_LANDING_ROUTES[user?.role],
+        }
+      })
   },
 
   requireSessionUser() {
@@ -154,7 +222,7 @@ export const authMockRepository = {
       throw new ApiError({
         status: 403,
         code: 'USER_INACTIVE',
-        message: 'This account is inactive',
+        message: 'Your account is inactive. Contact the administrator.',
       })
     }
 

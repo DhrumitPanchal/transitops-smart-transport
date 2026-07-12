@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, MoreHorizontal, Pencil, UserCog } from 'lucide-react'
+import { CheckCircle2, Eye, MoreHorizontal, Pencil, UserCog } from 'lucide-react'
 import DataTable from '../../components/tables/DataTable'
 import TableActions from '../../components/tables/TableActions'
 import StatusBadge from '../../components/common/StatusBadge'
@@ -7,9 +7,8 @@ import PermissionGate from '../../components/common/PermissionGate'
 import { usePermission } from '../../hooks/usePermission'
 import { PERMISSIONS } from '../../constants/permissions'
 import { ROUTES } from '../../constants/routes'
-import { ROLE_LABELS } from '../../constants/roles'
 import { USER_STATUS } from '../../constants/statuses'
-import { buildPath } from '../../utils/helpers'
+import { buildPath, getRoleLabel } from '../../utils/helpers'
 import { formatDate } from '../../utils/formatters'
 
 export default function UserTable({
@@ -25,6 +24,7 @@ export default function UserTable({
   onPageChange,
   onPageSizeChange,
   onChangeStatus,
+  onApprove,
   emptyAction,
 }) {
   const columns = [
@@ -46,7 +46,7 @@ export default function UserTable({
       key: 'role',
       header: 'Role',
       sortable: true,
-      render: (row) => ROLE_LABELS[row.role] || row.role,
+      render: (row) => getRoleLabel(row.role),
     },
     {
       key: 'status',
@@ -80,21 +80,26 @@ export default function UserTable({
       onPageChange={onPageChange}
       onPageSizeChange={onPageSizeChange}
       rowActions={(row) => (
-        <UserRowActions row={row} onChangeStatus={onChangeStatus} />
+        <UserRowActions
+          row={row}
+          onChangeStatus={onChangeStatus}
+          onApprove={onApprove}
+        />
       )}
     />
   )
 }
 
-function UserRowActions({ row, onChangeStatus }) {
+function UserRowActions({ row, onChangeStatus, onApprove }) {
   const navigate = useNavigate()
   const { hasPermission } = usePermission()
   const detailPath = buildPath(ROUTES.ADMIN_USER_DETAIL, { id: row.id })
   const editPath = buildPath(ROUTES.ADMIN_USER_EDIT, { id: row.id })
+  const isPending = row.status === USER_STATUS.PENDING
   const nextStatus =
-    row.status === USER_STATUS.ACTIVE
-      ? USER_STATUS.INACTIVE
-      : USER_STATUS.ACTIVE
+    row.status === USER_STATUS.INACTIVE
+      ? USER_STATUS.ACTIVE
+      : USER_STATUS.INACTIVE
 
   const menuItems = [
     {
@@ -105,7 +110,16 @@ function UserRowActions({ row, onChangeStatus }) {
     },
   ]
 
-  if (hasPermission(PERMISSIONS.USERS_EDIT)) {
+  if (isPending && hasPermission(PERMISSIONS.USERS_CHANGE_STATUS)) {
+    menuItems.push({
+      id: 'approve',
+      label: 'Approve',
+      icon: CheckCircle2,
+      onClick: () => onApprove?.(row),
+    })
+  }
+
+  if (!isPending && hasPermission(PERMISSIONS.USERS_EDIT)) {
     menuItems.push({
       id: 'edit',
       label: 'Edit',
@@ -132,14 +146,26 @@ function UserRowActions({ row, onChangeStatus }) {
         >
           View
         </Link>
-        <PermissionGate permission={PERMISSIONS.USERS_EDIT}>
-          <Link
-            to={editPath}
-            className="rounded-md px-2 py-1 text-sm text-slate-700 hover:bg-slate-100"
-          >
-            Edit
-          </Link>
-        </PermissionGate>
+        {isPending ? (
+          <PermissionGate permission={PERMISSIONS.USERS_CHANGE_STATUS}>
+            <button
+              type="button"
+              onClick={() => onApprove?.(row)}
+              className="rounded-md px-2 py-1 text-sm text-teal-700 hover:bg-teal-50"
+            >
+              Approve
+            </button>
+          </PermissionGate>
+        ) : (
+          <PermissionGate permission={PERMISSIONS.USERS_EDIT}>
+            <Link
+              to={editPath}
+              className="rounded-md px-2 py-1 text-sm text-slate-700 hover:bg-slate-100"
+            >
+              Edit
+            </Link>
+          </PermissionGate>
+        )}
         <PermissionGate permission={PERMISSIONS.USERS_CHANGE_STATUS}>
           <button
             type="button"

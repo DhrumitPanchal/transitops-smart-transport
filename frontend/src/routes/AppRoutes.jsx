@@ -12,6 +12,7 @@ import { ROLES } from '../constants/roles'
 import { useAuth } from '../hooks/useAuth'
 
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'))
+const RegisterPage = lazy(() => import('../pages/auth/RegisterPage'))
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'))
 const VehicleListPage = lazy(() => import('../pages/vehicles/VehicleListPage'))
 const VehicleCreatePage = lazy(() => import('../pages/vehicles/VehicleCreatePage'))
@@ -88,6 +89,7 @@ export default function AppRoutes() {
         <Route element={<PublicOnlyRoute />}>
           <Route element={<AuthLayout />}>
             <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+            <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
           </Route>
         </Route>
 

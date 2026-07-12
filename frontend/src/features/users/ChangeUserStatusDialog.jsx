@@ -13,9 +13,9 @@ export default function ChangeUserStatusDialog({
   onConfirm,
 }) {
   const nextStatus =
-    user?.status === USER_STATUS.ACTIVE
-      ? USER_STATUS.INACTIVE
-      : USER_STATUS.ACTIVE
+    user?.status === USER_STATUS.INACTIVE
+      ? USER_STATUS.ACTIVE
+      : USER_STATUS.INACTIVE
 
   const isSelfSuperAdmin =
     user &&
@@ -25,6 +25,8 @@ export default function ChangeUserStatusDialog({
     nextStatus === USER_STATUS.INACTIVE
 
   const activating = nextStatus === USER_STATUS.ACTIVE
+  const pendingNeedsApprove =
+    user?.status === USER_STATUS.PENDING && activating
 
   return (
     <ConfirmDialog
@@ -49,6 +51,12 @@ export default function ChangeUserStatusDialog({
             Users are never permanently deleted. Inactive accounts cannot sign
             in.
           </p>
+          {pendingNeedsApprove ? (
+            <InlineAlert tone="warning" title="Approval required">
+              Pending accounts must be approved with a role before they can
+              become active.
+            </InlineAlert>
+          ) : null}
           {isSelfSuperAdmin ? (
             <InlineAlert tone="warning" title="Not allowed">
               Current Super Admin cannot deactivate their own account.
@@ -65,7 +73,7 @@ export default function ChangeUserStatusDialog({
       cancelLabel="Cancel"
       variant={activating ? 'primary' : 'danger'}
       loading={loading}
-      confirmDisabled={isSelfSuperAdmin}
+      confirmDisabled={isSelfSuperAdmin || pendingNeedsApprove}
     />
   )
 }

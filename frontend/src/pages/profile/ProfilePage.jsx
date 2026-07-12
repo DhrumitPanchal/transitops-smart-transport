@@ -4,6 +4,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { getRoleLabel } from '../../utils/helpers'
 import { groupPermissions } from '../../utils/permissionGroups'
+import { formatDateTime } from '../../utils/formatters'
+import { USER_STATUS } from '../../constants/statuses'
 import PageContainer from '../../components/common/PageContainer'
 import PageHeader from '../../components/common/PageHeader'
 import Card from '../../components/common/Card'
@@ -13,9 +15,10 @@ import Button from '../../components/common/Button'
 import Avatar from '../../components/common/Avatar'
 import SectionTitle from '../../components/common/SectionTitle'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
+import InlineAlert from '../../components/feedback/InlineAlert'
 
 export default function ProfilePage() {
-  const { logout, isLoading } = useAuth()
+  const { logout, isLoading, isPendingApproval } = useAuth()
   const { user } = useCurrentUser()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
@@ -39,11 +42,18 @@ export default function ProfilePage() {
     return null
   }
 
+  const activeWithoutRole =
+    user.status === USER_STATUS.ACTIVE && !user.role
+
   return (
     <PageContainer>
       <PageHeader
         title="Profile"
-        description="Your account details and assigned permissions."
+        description={
+          isPendingApproval
+            ? 'Your registration details while waiting for approval.'
+            : 'Your account details and assigned permissions.'
+        }
         actions={
           <Button
             variant="danger"
@@ -55,6 +65,24 @@ export default function ProfilePage() {
           </Button>
         }
       />
+
+      {isPendingApproval ? (
+        <div className="mb-4">
+          <InlineAlert tone="warning" title="Waiting for approval">
+            A Super Admin must assign a role before you can access operational
+            modules.
+          </InlineAlert>
+        </div>
+      ) : null}
+
+      {activeWithoutRole ? (
+        <div className="mb-4">
+          <InlineAlert tone="warning" title="No role assigned">
+            Your account is active but no role has been assigned. Contact the
+            administrator.
+          </InlineAlert>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <Card>
@@ -91,13 +119,23 @@ export default function ProfilePage() {
                 <StatusBadge status={user.status} />
               </dd>
             </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Registered</dt>
+              <dd className="font-medium text-slate-800">
+                {formatDateTime(user.createdAt)}
+              </dd>
+            </div>
           </dl>
         </Card>
 
         <Card>
           <SectionTitle
             title="Permissions"
-            description="Grouped access rights for your role."
+            description={
+              isPendingApproval
+                ? 'Permissions are assigned after administrator approval.'
+                : 'Grouped access rights for your role.'
+            }
           />
           <div className="space-y-5">
             {permissionGroups.length === 0 ? (

@@ -1,12 +1,16 @@
 import { useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { LogOut, RefreshCw, UserRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageContainer from '../../components/common/PageContainer'
 import PageHeader from '../../components/common/PageHeader'
 import Button from '../../components/common/Button'
+import Card from '../../components/common/Card'
+import StatusBadge from '../../components/common/StatusBadge'
 import ErrorState from '../../components/feedback/ErrorState'
 import TableSkeleton from '../../components/tables/TableSkeleton'
 import InlineAlert from '../../components/feedback/InlineAlert'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 import DashboardKpiGrid from '../../features/dashboard/DashboardKpiGrid'
 import DashboardCharts from '../../features/dashboard/DashboardCharts'
 import {
@@ -27,15 +31,112 @@ import {
   useRefreshDashboard,
 } from '../../hooks/dashboard'
 import { usePermission } from '../../hooks/usePermission'
+import { useAuth } from '../../hooks/useAuth'
 import { formatDateTime } from '../../utils/formatters'
 import { ROLE_LABELS } from '../../constants/roles'
+import { ROUTES } from '../../constants/routes'
 import { getErrorMessage } from '../../api/apiError'
+
+function PendingDashboard({ user, onLogout, loggingOut }) {
+  return (
+    <PageContainer maxWidth="lg">
+      <PageHeader
+        title="Registration submitted"
+        description="Your account is waiting for administrator approval."
+      />
+
+      <Card>
+        <InlineAlert tone="warning" title="Pending approval">
+          A Super Admin must review your account and assign an operational role
+          before you can access fleet modules.
+        </InlineAlert>
+
+        <dl className="mt-6 space-y-3 text-sm">
+          <div className="flex justify-between gap-3 border-b border-slate-100 py-2">
+            <dt className="text-slate-500">Name</dt>
+            <dd className="font-medium text-slate-800">{user.name}</dd>
+          </div>
+          <div className="flex justify-between gap-3 border-b border-slate-100 py-2">
+            <dt className="text-slate-500">Email</dt>
+            <dd className="font-medium text-slate-800">{user.email}</dd>
+          </div>
+          <div className="flex justify-between gap-3 border-b border-slate-100 py-2">
+            <dt className="text-slate-500">Status</dt>
+            <dd>
+              <StatusBadge status={user.status} />
+            </dd>
+          </div>
+          <div className="flex justify-between gap-3 py-2">
+            <dt className="text-slate-500">Registered</dt>
+            <dd className="font-medium text-slate-800">
+              {formatDateTime(user.createdAt)}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-6 flex flex-wrap gap-2">
+          <Link to={ROUTES.PROFILE}>
+            <Button variant="secondary" icon={UserRound}>
+              Profile
+            </Button>
+          </Link>
+          <Button
+            variant="danger"
+            icon={LogOut}
+            loading={loggingOut}
+            onClick={onLogout}
+          >
+            Logout
+          </Button>
+        </div>
+      </Card>
+    </PageContainer>
+  )
+}
 
 export default function DashboardPage() {
   const { role, hasPermission } = usePermission()
-  const dashboardQuery = useDashboardSummary()
+  const { user, isPendingApproval, logout, isLoading } = useAuth()
+  const dashboardQuery = useDashboardSummary({
+    enabled: !isPendingApproval,
+  })
   const refreshDashboard = useRefreshDashboard()
   const [refreshing, setRefreshing] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      await logout()
+    } finally {
+      setLoggingOut(false)
+      setConfirmOpen(false)
+    }
+  }
+
+  if (isPendingApproval && user) {
+    return (
+      <>
+        <PendingDashboard
+          user={user}
+          loggingOut={loggingOut || isLoading}
+          onLogout={() => setConfirmOpen(true)}
+        />
+        <ConfirmDialog
+          open={confirmOpen}
+          onClose={() => setConfirmOpen(false)}
+          onConfirm={handleLogout}
+          title="Sign out"
+          message="Are you sure you want to sign out of TransitOps?"
+          confirmLabel="Logout"
+          cancelLabel="Stay signed in"
+          variant="danger"
+          loading={loggingOut}
+        />
+      </>
+    )
+  }
 
   const summary = dashboardQuery.data?.data
   const kpis = summary?.kpis || {}

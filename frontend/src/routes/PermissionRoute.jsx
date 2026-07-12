@@ -1,6 +1,8 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { ROUTES } from '../constants/routes'
+import { USER_STATUS } from '../constants/statuses'
+import { PERMISSIONS } from '../constants/permissions'
 import PageLoader from '../components/feedback/PageLoader'
 
 export default function PermissionRoute({
@@ -14,6 +16,7 @@ export default function PermissionRoute({
     hasPermission,
     hasAnyPermission,
     user,
+    isPendingApproval,
   } = useAuth()
 
   if (isInitializing) {
@@ -22,6 +25,17 @@ export default function PermissionRoute({
 
   if (!isAuthenticated) {
     return <Navigate to={ROUTES.LOGIN} replace />
+  }
+
+  if (user?.status === USER_STATUS.ACTIVE && !user?.role) {
+    return <Navigate to={ROUTES.PROFILE} replace />
+  }
+
+  if (isPendingApproval) {
+    if (permission === PERMISSIONS.DASHBOARD_VIEW) {
+      return <Outlet />
+    }
+    return <Navigate to={ROUTES.DASHBOARD} replace />
   }
 
   if (roles.length > 0 && !roles.includes(user?.role)) {

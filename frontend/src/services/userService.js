@@ -8,6 +8,7 @@ import {
   toApiQuery,
   toApiRequest,
 } from '../mappers/userMapper'
+import { fromApiEnvelope } from '../mappers/apiEnvelope'
 
 export async function list(params = {}) {
   if (isMockMode()) {
@@ -63,4 +64,16 @@ export async function changeStatus(id, status) {
     toApiRequest({ status }),
   )
   return fromApiDetail(data)
+}
+
+export async function approve(id, payload) {
+  if (isMockMode()) {
+    return userMockRepository.approve(id, payload)
+  }
+
+  const { data } = await apiClient.patch(
+    ENDPOINTS.USERS.APPROVE(id),
+    toApiRequest(payload),
+  )
+  return fromApiEnvelope(data)
 }

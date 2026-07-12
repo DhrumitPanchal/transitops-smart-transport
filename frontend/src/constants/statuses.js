@@ -27,6 +27,7 @@ export const MAINTENANCE_STATUS = {
 }
 
 export const USER_STATUS = {
+  PENDING: 'PENDING',
   ACTIVE: 'ACTIVE',
   INACTIVE: 'INACTIVE',
 }
@@ -52,6 +53,7 @@ export const STATUS_LABELS = {
   [MAINTENANCE_STATUS.COMPLETED]: 'Completed',
   [MAINTENANCE_STATUS.CANCELLED]: 'Cancelled',
 
+  [USER_STATUS.PENDING]: 'Pending',
   [USER_STATUS.ACTIVE]: 'Active',
   [USER_STATUS.INACTIVE]: 'Inactive',
 }

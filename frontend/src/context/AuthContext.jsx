@@ -10,11 +10,11 @@ import { isMockMode } from '../services/serviceMode'
 import { setUnauthorizedHandler } from '../api/apiClient'
 import {
   getRoleLandingRoute,
-  hasAnyPermission as checkAnyPermission,
   hasPermission as checkPermission,
 } from '../utils/helpers'
 import { USER_STATUS } from '../constants/statuses'
 import { ROLES } from '../constants/roles'
+import { ROUTES } from '../constants/routes'
 import { setAuthSessionHandlers } from './authSessionBridge'
 import { AuthContext } from './authContextInstance'
 
@@ -27,8 +27,27 @@ function unwrapData(payload) {
   return payload
 }
 
+function unwrapUser(payload) {
+  const data = unwrapData(payload)
+  if (data && typeof data === 'object' && data.user) {
+    return data.user
+  }
+  return data
+}
+
+function sanitizeSessionUser(user) {
+  if (!user || typeof user !== 'object') return user
+  const next = { ...user }
+  delete next.password
+  delete next.confirmPassword
+  delete next.passwordHash
+  return next
+}
+
 function userHasPermission(user, permission) {
   if (!user || !permission) return false
+  if (user.status === USER_STATUS.PENDING) return false
+  if (user.status === USER_STATUS.ACTIVE && !user.role) return false
 
   if (user.role === ROLES.SUPER_ADMIN) {
     return true
@@ -46,17 +65,14 @@ function userHasAnyPermission(user, permissions = []) {
     return false
   }
 
-  if (user.role === ROLES.SUPER_ADMIN) {
-    return true
-  }
+  return permissions.some((permission) => userHasPermission(user, permission))
+}
 
-  if (Array.isArray(user.permissions)) {
-    return permissions.some((permission) =>
-      user.permissions.includes(permission),
-    )
-  }
-
-  return checkAnyPermission(user.role, permissions)
+function resolveLandingRoute(user) {
+  if (!user) return ROUTES.LOGIN
+  if (user.status === USER_STATUS.PENDING) return ROUTES.DASHBOARD
+  if (user.status === USER_STATUS.ACTIVE && !user.role) return ROUTES.PROFILE
+  return getRoleLandingRoute(user.role)
 }
 
 export function AuthProvider({ children }) {
@@ -82,16 +98,10 @@ export function AuthProvider({ children }) {
         return current
       }
 
-      const next = {
+      return sanitizeSessionUser({
         ...current,
         ...patch,
-        // Never accept password fields into session state
-        password: undefined,
-        confirmPassword: undefined,
-      }
-      delete next.password
-      delete next.confirmPassword
-      return next
+      })
     })
   }, [])
 
@@ -143,7 +153,7 @@ export function AuthProvider({ children }) {
       try {
         const response = await authService.getCurrentUser()
         if (!cancelled) {
-          setUser(unwrapData(response))
+          setUser(sanitizeSessionUser(unwrapUser(response)))
         }
       } catch {
         if (!cancelled) {
@@ -164,14 +174,33 @@ export function AuthProvider({ children }) {
   }, [])
 
   const isAuthenticated = Boolean(user) && user.status !== USER_STATUS.INACTIVE
+  const isPendingApproval = Boolean(
+    user && user.status === USER_STATUS.PENDING,
+  )
 
   const login = useCallback(async (credentials) => {
     setIsLoading(true)
     try {
       const response = await authService.login(credentials)
-      const nextUser = unwrapData(response)
+      const nextUser = sanitizeSessionUser(unwrapUser(response))
       setUser(nextUser)
       return { user: nextUser, data: nextUser }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  const register = useCallback(async (payload) => {
+    setIsLoading(true)
+    try {
+      const response = await authService.register(payload)
+      const nextUser = sanitizeSessionUser(unwrapUser(response))
+      setUser(nextUser)
+      return {
+        user: nextUser,
+        data: nextUser,
+        message: response?.message,
+      }
     } finally {
       setIsLoading(false)
     }
@@ -199,10 +228,7 @@ export function AuthProvider({ children }) {
     [user],
   )
 
-  const landingRoute = useMemo(
-    () => getRoleLandingRoute(user?.role),
-    [user?.role],
-  )
+  const landingRoute = useMemo(() => resolveLandingRoute(user), [user])
 
   const value = useMemo(
     () => ({
@@ -210,7 +236,9 @@ export function AuthProvider({ children }) {
       isAuthenticated,
       isInitializing,
       isLoading,
+      isPendingApproval,
       login,
+      register,
       logout,
       hasPermission,
       hasAnyPermission,
@@ -223,7 +251,9 @@ export function AuthProvider({ children }) {
       isAuthenticated,
       isInitializing,
       isLoading,
+      isPendingApproval,
       login,
+      register,
       logout,
       hasPermission,
       hasAnyPermission,
