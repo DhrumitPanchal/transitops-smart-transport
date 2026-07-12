@@ -104,8 +104,7 @@ const getExpenses = async ({
 };
 
 const getExpenseById = async (id) => {
-  const expense = await prisma.expense.findUnique({
-    where: { id, isDeleted: false },
+  const expense = await prisma.expense.findFirst({ where: { id, isDeleted: false },
     select: {
       id: true,
       vehicleId: true,
@@ -164,8 +163,7 @@ const createExpense = async (data, userId, meta = {}) => {
   } = data;
 
   if (vehicleId) {
-    const vehicle = await prisma.vehicle.findUnique({
-      where: { id: vehicleId, isDeleted: false },
+    const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, isDeleted: false },
     });
 
     if (!vehicle) {
@@ -174,8 +172,7 @@ const createExpense = async (data, userId, meta = {}) => {
   }
 
   if (driverId) {
-    const driver = await prisma.driver.findUnique({
-      where: { id: driverId, isDeleted: false },
+    const driver = await prisma.driver.findFirst({ where: { id: driverId, isDeleted: false },
     });
 
     if (!driver) {
@@ -238,8 +235,7 @@ const createExpense = async (data, userId, meta = {}) => {
 };
 
 const updateExpense = async (id, data, userId, meta = {}) => {
-  const expense = await prisma.expense.findUnique({
-    where: { id, isDeleted: false },
+  const expense = await prisma.expense.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!expense) {
@@ -282,8 +278,7 @@ const updateExpense = async (id, data, userId, meta = {}) => {
 };
 
 const deleteExpense = async (id, userId, meta = {}) => {
-  const expense = await prisma.expense.findUnique({
-    where: { id, isDeleted: false },
+  const expense = await prisma.expense.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!expense) {

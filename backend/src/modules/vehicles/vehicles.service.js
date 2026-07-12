@@ -102,7 +102,7 @@ const getVehicles = async ({
 };
 
 const getVehicleById = async (id) => {
-  const vehicle = await prisma.vehicle.findUnique({
+  const vehicle = await prisma.vehicle.findFirst({
     where: { id, isDeleted: false },
     select: {
       id: true,
@@ -127,13 +127,16 @@ const getVehicleById = async (id) => {
         },
       },
       maintenances: {
-        where: { status: { in: ["OPEN", "IN_PROGRESS"] } },
+        where: {
+          isDeleted: false,
+          status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+        },
         select: {
           id: true,
           maintenanceType: true,
           title: true,
           status: true,
-          startedAt: true,
+          scheduledDate: true,
         },
         orderBy: { createdAt: "desc" },
         take: 1,
@@ -152,7 +155,7 @@ const getVehicleById = async (id) => {
     throw new AppError(404, "Vehicle not found");
   }
 
-  return vehicle;
+  return serializeValue(vehicle);
 };
 
 const createVehicle = async (data, userId, meta = {}) => {
@@ -225,8 +228,7 @@ const createVehicle = async (data, userId, meta = {}) => {
 };
 
 const updateVehicle = async (id, data, userId, meta = {}) => {
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id, isDeleted: false },
+  const vehicle = await prisma.vehicle.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!vehicle) {
@@ -299,8 +301,7 @@ const updateVehicle = async (id, data, userId, meta = {}) => {
 };
 
 const changeVehicleStatus = async (id, status, userId, meta = {}) => {
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id, isDeleted: false },
+  const vehicle = await prisma.vehicle.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!vehicle) {
@@ -376,8 +377,7 @@ const changeVehicleStatus = async (id, status, userId, meta = {}) => {
 };
 
 const deleteVehicle = async (id, userId, meta = {}) => {
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id, isDeleted: false },
+  const vehicle = await prisma.vehicle.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!vehicle) {

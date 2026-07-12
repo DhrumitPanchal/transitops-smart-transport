@@ -118,8 +118,7 @@ const getDrivers = async ({
 };
 
 const getDriverById = async (id) => {
-  const driver = await prisma.driver.findUnique({
-    where: { id, isDeleted: false },
+  const driver = await prisma.driver.findFirst({ where: { id, isDeleted: false },
     select: {
       id: true,
       employeeCode: true,
@@ -304,8 +303,7 @@ const createDriver = async (data, userId, meta = {}) => {
 };
 
 const updateDriver = async (id, data, userId, meta = {}) => {
-  const driver = await prisma.driver.findUnique({
-    where: { id, isDeleted: false },
+  const driver = await prisma.driver.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!driver) {
@@ -414,8 +412,7 @@ const updateDriver = async (id, data, userId, meta = {}) => {
 };
 
 const changeDriverStatus = async (id, status, userId, meta = {}) => {
-  const driver = await prisma.driver.findUnique({
-    where: { id, isDeleted: false },
+  const driver = await prisma.driver.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!driver) {
@@ -485,8 +482,7 @@ const changeDriverStatus = async (id, status, userId, meta = {}) => {
 };
 
 const deleteDriver = async (id, userId, meta = {}) => {
-  const driver = await prisma.driver.findUnique({
-    where: { id, isDeleted: false },
+  const driver = await prisma.driver.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!driver) {

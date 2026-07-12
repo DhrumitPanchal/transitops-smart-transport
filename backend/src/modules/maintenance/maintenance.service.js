@@ -126,8 +126,7 @@ const getMaintenances = async ({
 };
 
 const getMaintenanceById = async (id) => {
-  const maintenance = await prisma.vehicleMaintenance.findUnique({
-    where: { id, isDeleted: false },
+  const maintenance = await prisma.vehicleMaintenance.findFirst({ where: { id, isDeleted: false },
     select: {
       id: true,
       maintenanceNumber: true,
@@ -188,8 +187,7 @@ const createMaintenance = async (data, userId, meta = {}) => {
     throw new AppError(400, "Maintenance type is required");
   }
 
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id: vehicleId, isDeleted: false },
+  const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, isDeleted: false },
   });
 
   if (!vehicle) {
@@ -260,8 +258,7 @@ const createMaintenance = async (data, userId, meta = {}) => {
 };
 
 const updateMaintenance = async (id, data, userId, meta = {}) => {
-  const maintenance = await prisma.vehicleMaintenance.findUnique({
-    where: { id, isDeleted: false },
+  const maintenance = await prisma.vehicleMaintenance.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!maintenance) {
@@ -277,8 +274,7 @@ const updateMaintenance = async (id, data, userId, meta = {}) => {
   }
 
   if (data.vehicleId && data.vehicleId !== maintenance.vehicleId) {
-    const vehicle = await prisma.vehicle.findUnique({
-      where: { id: data.vehicleId, isDeleted: false },
+    const vehicle = await prisma.vehicle.findFirst({ where: { id: data.vehicleId, isDeleted: false },
     });
 
     if (!vehicle) {
@@ -340,8 +336,7 @@ const updateMaintenance = async (id, data, userId, meta = {}) => {
 };
 
 const startMaintenance = async (id, userId, meta = {}) => {
-  const maintenance = await prisma.vehicleMaintenance.findUnique({
-    where: { id, isDeleted: false },
+  const maintenance = await prisma.vehicleMaintenance.findFirst({ where: { id, isDeleted: false },
     include: { vehicle: true },
   });
 
@@ -413,8 +408,7 @@ const startMaintenance = async (id, userId, meta = {}) => {
 };
 
 const completeMaintenance = async (id, data, userId, meta = {}) => {
-  const maintenance = await prisma.vehicleMaintenance.findUnique({
-    where: { id, isDeleted: false },
+  const maintenance = await prisma.vehicleMaintenance.findFirst({ where: { id, isDeleted: false },
     include: { vehicle: true },
   });
 
@@ -493,8 +487,7 @@ const completeMaintenance = async (id, data, userId, meta = {}) => {
 };
 
 const cancelMaintenance = async (id, data, userId, meta = {}) => {
-  const maintenance = await prisma.vehicleMaintenance.findUnique({
-    where: { id, isDeleted: false },
+  const maintenance = await prisma.vehicleMaintenance.findFirst({ where: { id, isDeleted: false },
     include: { vehicle: true },
   });
 
@@ -571,8 +564,7 @@ const cancelMaintenance = async (id, data, userId, meta = {}) => {
 };
 
 const deleteMaintenance = async (id, userId, meta = {}) => {
-  const maintenance = await prisma.vehicleMaintenance.findUnique({
-    where: { id, isDeleted: false },
+  const maintenance = await prisma.vehicleMaintenance.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!maintenance) {

@@ -142,6 +142,46 @@ const getTrips = async ({
   };
 };
 
+const mapTripDetail = (trip) => {
+  if (!trip) return trip;
+
+  const serialized = serializeValue(trip);
+  const driver = serialized.driver
+    ? {
+        ...serialized.driver,
+        name: [serialized.driver.firstName, serialized.driver.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .trim(),
+        contactNumber: serialized.driver.phone || null,
+      }
+    : null;
+
+  const fuelLogs = (serialized.fuelLogs || []).map((log) => ({
+    ...log,
+    liters: log.quantity,
+    cost: log.totalAmount,
+    costPerLitre: log.pricePerUnit,
+    stationName: log.fuelStation,
+    odometer: log.odometerReading,
+  }));
+
+  const expenses = (serialized.expenses || []).map((expense) => ({
+    ...expense,
+    expenseType: expense.category,
+    description: expense.title || expense.remarks || null,
+  }));
+
+  return {
+    ...serialized,
+    plannedDistance: serialized.distance,
+    revenue: serialized.revenue ?? 0,
+    driver,
+    fuelLogs,
+    expenses,
+  };
+};
+
 const getTripById = async (id) => {
   const trip = await prisma.trip.findUnique({
     where: { id },
@@ -188,25 +228,32 @@ const getTripById = async (id) => {
           licenseCategory: true,
         },
       },
+      // Prisma VehicleFuelLog fields (NOT liters/pricePerLiter/totalCost/station)
       fuelLogs: {
+        where: { isDeleted: false },
         select: {
           id: true,
           fuelDate: true,
-          liters: true,
-          pricePerLiter: true,
-          totalCost: true,
-          odometer: true,
-          station: true,
+          quantity: true,
+          pricePerUnit: true,
+          totalAmount: true,
+          odometerReading: true,
+          fuelStation: true,
+          fuelType: true,
         },
       },
+      // Prisma Expense fields (NOT expenseType/description/billNumber)
       expenses: {
+        where: { isDeleted: false },
         select: {
           id: true,
-          expenseType: true,
+          category: true,
+          title: true,
           amount: true,
           expenseDate: true,
-          description: true,
-          billNumber: true,
+          vendor: true,
+          paymentMethod: true,
+          remarks: true,
         },
       },
     },
@@ -216,7 +263,7 @@ const getTripById = async (id) => {
     throw new AppError(404, "Trip not found");
   }
 
-  return trip;
+  return mapTripDetail(trip);
 };
 
 const createTrip = async (data, userId, meta = {}) => {
@@ -233,16 +280,14 @@ const createTrip = async (data, userId, meta = {}) => {
     remarks,
   } = data;
 
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id: vehicleId, isDeleted: false },
+  const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, isDeleted: false },
   });
 
   if (!vehicle) {
     throw new AppError(404, "Vehicle not found");
   }
 
-  const driver = await prisma.driver.findUnique({
-    where: { id: driverId, isDeleted: false },
+  const driver = await prisma.driver.findFirst({ where: { id: driverId, isDeleted: false },
   });
 
   if (!driver) {
@@ -317,8 +362,7 @@ const updateTrip = async (id, data, userId, meta = {}) => {
   }
 
   if (data.vehicleId) {
-    const vehicle = await prisma.vehicle.findUnique({
-      where: { id: data.vehicleId, isDeleted: false },
+    const vehicle = await prisma.vehicle.findFirst({ where: { id: data.vehicleId, isDeleted: false },
     });
 
     if (!vehicle) {
@@ -327,8 +371,7 @@ const updateTrip = async (id, data, userId, meta = {}) => {
   }
 
   if (data.driverId) {
-    const driver = await prisma.driver.findUnique({
-      where: { id: data.driverId, isDeleted: false },
+    const driver = await prisma.driver.findFirst({ where: { id: data.driverId, isDeleted: false },
     });
 
     if (!driver) {

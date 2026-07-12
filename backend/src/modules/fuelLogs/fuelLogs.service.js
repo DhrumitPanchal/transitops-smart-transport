@@ -113,8 +113,7 @@ const getFuelLogs = async ({
 };
 
 const getFuelLogById = async (id) => {
-  const fuelLog = await prisma.vehicleFuelLog.findUnique({
-    where: { id, isDeleted: false },
+  const fuelLog = await prisma.vehicleFuelLog.findFirst({ where: { id, isDeleted: false },
     select: {
       id: true,
       vehicleId: true,
@@ -173,16 +172,14 @@ const createFuelLog = async (data, userId, meta = {}) => {
     remarks,
   } = data;
 
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id: vehicleId, isDeleted: false },
+  const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, isDeleted: false },
   });
 
   if (!vehicle) {
     throw new AppError(404, "Vehicle not found");
   }
 
-  const driver = await prisma.driver.findUnique({
-    where: { id: driverId, isDeleted: false },
+  const driver = await prisma.driver.findFirst({ where: { id: driverId, isDeleted: false },
   });
 
   if (!driver) {
@@ -260,8 +257,7 @@ const createFuelLog = async (data, userId, meta = {}) => {
 };
 
 const updateFuelLog = async (id, data, userId, meta = {}) => {
-  const fuelLog = await prisma.vehicleFuelLog.findUnique({
-    where: { id, isDeleted: false },
+  const fuelLog = await prisma.vehicleFuelLog.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!fuelLog) {
@@ -316,8 +312,7 @@ const updateFuelLog = async (id, data, userId, meta = {}) => {
 };
 
 const deleteFuelLog = async (id, userId, meta = {}) => {
-  const fuelLog = await prisma.vehicleFuelLog.findUnique({
-    where: { id, isDeleted: false },
+  const fuelLog = await prisma.vehicleFuelLog.findFirst({ where: { id, isDeleted: false },
   });
 
   if (!fuelLog) {
