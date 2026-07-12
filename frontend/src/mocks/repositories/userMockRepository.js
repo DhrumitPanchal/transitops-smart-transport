@@ -25,6 +25,15 @@ function findUserOrThrow(id) {
   return user
 }
 
+function assertNoPasswordLeak(record) {
+  if (!record || typeof record !== 'object') return record
+  const clone = { ...record }
+  delete clone.password
+  delete clone.confirmPassword
+  delete clone.passwordHash
+  return clone
+}
+
 export const userMockRepository = {
   async list(query = {}) {
     await mockDelay()
@@ -52,6 +61,16 @@ export const userMockRepository = {
     const currentUser = authMockRepository.requireSessionUser()
     const db = getDb()
     const email = normalizeEmail(payload.email)
+    const password = String(payload.password || '')
+
+    if (!password || password.length < 6) {
+      throw new ApiError({
+        status: 400,
+        code: 'PASSWORD_REQUIRED',
+        message: 'Password is required',
+        fieldErrors: { password: 'Password is required' },
+      })
+    }
 
     if (db.users.some((item) => normalizeEmail(item.email) === email)) {
       throw new ApiError({
@@ -71,23 +90,38 @@ export const userMockRepository = {
       })
     }
 
+    const status = payload.status || USER_STATUS.ACTIVE
+    if (![USER_STATUS.ACTIVE, USER_STATUS.INACTIVE].includes(status)) {
+      throw new ApiError({
+        status: 400,
+        code: 'INVALID_STATUS',
+        message: 'Invalid user status',
+        fieldErrors: { status: 'Invalid user status' },
+      })
+    }
+
+    const now = new Date().toISOString()
     const user = {
       id: createId('user'),
       name: String(payload.name || '').trim(),
       email,
       role: payload.role,
-      status: payload.status || USER_STATUS.ACTIVE,
-      createdAt: new Date().toISOString(),
+      status,
+      createdAt: now,
+      updatedAt: now,
       createdBy: currentUser.id,
     }
 
+    // Store credential separately — never on the user record / API response
+    authMockRepository.registerCredential(email, password)
     db.users.unshift(user)
-    return singleResponse(toPublicUser(user))
+
+    return singleResponse(assertNoPasswordLeak(toPublicUser(user)))
   },
 
   async update(id, payload) {
     await mockDelay()
-    authMockRepository.requireSessionUser()
+    const currentUser = authMockRepository.requireSessionUser()
     const db = getDb()
     const user = findUserOrThrow(id)
     const email = normalizeEmail(payload.email ?? user.email)
@@ -105,15 +139,30 @@ export const userMockRepository = {
       })
     }
 
+    const nextStatus = payload.status ?? user.status
+    if (
+      currentUser.id === id &&
+      currentUser.role === ROLES.SUPER_ADMIN &&
+      nextStatus === USER_STATUS.INACTIVE
+    ) {
+      throw new ApiError({
+        status: 400,
+        code: 'CANNOT_DEACTIVATE_SELF',
+        message: 'Current Super Admin cannot deactivate self',
+        fieldErrors: { status: 'Current Super Admin cannot deactivate self' },
+      })
+    }
+
     Object.assign(user, {
       name: String(payload.name ?? user.name).trim(),
       email,
       role: payload.role ?? user.role,
-      status: payload.status ?? user.status,
+      status: nextStatus,
       updatedAt: new Date().toISOString(),
     })
 
-    return singleResponse(toPublicUser(user))
+    // Ignore any password fields on update — never persist onto user object
+    return singleResponse(assertNoPasswordLeak(toPublicUser(user)))
   },
 
   async changeStatus(id, status) {
@@ -143,6 +192,6 @@ export const userMockRepository = {
 
     user.status = status
     user.updatedAt = new Date().toISOString()
-    return singleResponse(toPublicUser(user))
+    return singleResponse(assertNoPasswordLeak(toPublicUser(user)))
   },
 }

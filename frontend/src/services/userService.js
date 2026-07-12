@@ -2,14 +2,22 @@ import apiClient from '../api/apiClient'
 import { ENDPOINTS } from '../api/endpoints'
 import { isMockMode } from './serviceMode'
 import { userMockRepository } from '../mocks/repositories/userMockRepository'
+import {
+  fromApiDetail,
+  fromApiList,
+  toApiQuery,
+  toApiRequest,
+} from '../mappers/userMapper'
 
 export async function list(params = {}) {
   if (isMockMode()) {
     return userMockRepository.list(params)
   }
 
-  const { data } = await apiClient.get(ENDPOINTS.USERS.BASE, { params })
-  return data
+  const { data } = await apiClient.get(ENDPOINTS.USERS.BASE, {
+    params: toApiQuery(params),
+  })
+  return fromApiList(data)
 }
 
 export async function getById(id) {
@@ -18,7 +26,7 @@ export async function getById(id) {
   }
 
   const { data } = await apiClient.get(ENDPOINTS.USERS.BY_ID(id))
-  return data
+  return fromApiDetail(data)
 }
 
 export async function create(payload) {
@@ -26,8 +34,11 @@ export async function create(payload) {
     return userMockRepository.create(payload)
   }
 
-  const { data } = await apiClient.post(ENDPOINTS.USERS.BASE, payload)
-  return data
+  const { data } = await apiClient.post(
+    ENDPOINTS.USERS.BASE,
+    toApiRequest(payload),
+  )
+  return fromApiDetail(data)
 }
 
 export async function update(id, payload) {
@@ -35,8 +46,11 @@ export async function update(id, payload) {
     return userMockRepository.update(id, payload)
   }
 
-  const { data } = await apiClient.put(ENDPOINTS.USERS.BY_ID(id), payload)
-  return data
+  const { data } = await apiClient.put(
+    ENDPOINTS.USERS.BY_ID(id),
+    toApiRequest(payload),
+  )
+  return fromApiDetail(data)
 }
 
 export async function changeStatus(id, status) {
@@ -44,6 +58,9 @@ export async function changeStatus(id, status) {
     return userMockRepository.changeStatus(id, status)
   }
 
-  const { data } = await apiClient.patch(ENDPOINTS.USERS.STATUS(id), { status })
-  return data
+  const { data } = await apiClient.patch(
+    ENDPOINTS.USERS.STATUS(id),
+    toApiRequest({ status }),
+  )
+  return fromApiDetail(data)
 }

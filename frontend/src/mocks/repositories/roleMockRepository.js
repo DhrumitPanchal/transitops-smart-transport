@@ -1,5 +1,9 @@
 import { ApiError } from '../../api/apiError'
-import { ALL_PERMISSIONS } from '../../constants/permissions'
+import {
+  ALL_PERMISSIONS,
+  SUPER_ADMIN_ONLY_PERMISSIONS,
+  stripSuperAdminOnlyPermissions,
+} from '../../constants/permissions'
 import { ROLES } from '../../constants/roles'
 import { mockDelay } from '../mockDelay'
 import { getDb } from '../db'
@@ -79,9 +83,28 @@ export const roleMockRepository = {
           },
         })
       }
+      role.permissions = [...ALL_PERMISSIONS]
+      role.updatedAt = new Date().toISOString()
+      return singleResponse(role)
     }
 
-    role.permissions = [...new Set(permissions)]
+    const forbidden = permissions.filter((permission) =>
+      SUPER_ADMIN_ONLY_PERMISSIONS.includes(permission),
+    )
+    if (forbidden.length > 0) {
+      throw new ApiError({
+        status: 403,
+        code: 'SUPER_ADMIN_ONLY_PERMISSIONS',
+        message: 'Users and roles permissions are reserved for Super Admin',
+        fieldErrors: {
+          permissions: 'Users and roles permissions are reserved for Super Admin',
+        },
+      })
+    }
+
+    role.permissions = [
+      ...new Set(stripSuperAdminOnlyPermissions(permissions)),
+    ]
     role.updatedAt = new Date().toISOString()
     return singleResponse(role)
   },

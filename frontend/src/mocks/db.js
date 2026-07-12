@@ -108,7 +108,7 @@ function createSeed() {
       odometer: 45200,
       acquisitionCost: 3200000,
       region: 'Bengaluru',
-      status: VEHICLE_STATUS.AVAILABLE,
+      status: VEHICLE_STATUS.ON_TRIP,
       createdAt: '2025-11-01T10:00:00.000Z',
     },
     {
@@ -161,7 +161,7 @@ function createSeed() {
       licenseExpiryDate: '2027-08-15',
       contactNumber: '+91 98765 43210',
       safetyScore: 92,
-      status: DRIVER_STATUS.AVAILABLE,
+      status: DRIVER_STATUS.ON_TRIP,
       createdAt: '2025-10-01T09:00:00.000Z',
     },
     {
@@ -169,7 +169,7 @@ function createSeed() {
       name: 'Suresh Patel',
       licenseNumber: 'KA2019045',
       licenseCategory: LICENCE_CATEGORIES.HTV,
-      licenseExpiryDate: '2026-12-20',
+      licenseExpiryDate: '2026-08-01',
       contactNumber: '+91 98765 43211',
       safetyScore: 88,
       status: DRIVER_STATUS.AVAILABLE,
@@ -202,6 +202,7 @@ function createSeed() {
   const trips = [
     {
       id: 'trip_1',
+      tripNumber: 'TRP-0001',
       source: 'Depot A',
       destination: 'City Center',
       vehicleId: 'veh_1',
@@ -209,12 +210,14 @@ function createSeed() {
       cargoWeight: 3200,
       plannedDistance: 42,
       revenue: 8500,
-      status: TRIP_STATUS.DRAFT,
+      status: TRIP_STATUS.DISPATCHED,
       startOdometer: 45200,
+      dispatchedAt: '2026-07-10T06:30:00.000Z',
       createdAt: '2026-07-10T06:00:00.000Z',
     },
     {
       id: 'trip_2',
+      tripNumber: 'TRP-0002',
       source: 'Warehouse North',
       destination: 'Port Terminal',
       vehicleId: 'veh_2',
@@ -229,6 +232,20 @@ function createSeed() {
       fuelCost: 2800,
       completedAt: '2026-07-08T18:00:00.000Z',
       createdAt: '2026-07-08T05:00:00.000Z',
+    },
+    {
+      id: 'trip_3',
+      tripNumber: 'TRP-0003',
+      source: 'Mysuru Depot',
+      destination: 'Bengaluru Hub',
+      vehicleId: 'veh_2',
+      driverId: 'drv_2',
+      cargoWeight: 4500,
+      plannedDistance: 150,
+      revenue: 12000,
+      status: TRIP_STATUS.DRAFT,
+      startOdometer: 78150,
+      createdAt: '2026-07-11T09:00:00.000Z',
     },
   ]
 

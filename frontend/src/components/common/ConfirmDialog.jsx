@@ -11,6 +11,7 @@ export default function ConfirmDialog({
   cancelLabel = 'Cancel',
   variant = 'danger',
   loading = false,
+  confirmDisabled = false,
 }) {
   return (
     <Modal
@@ -27,13 +28,14 @@ export default function ConfirmDialog({
             variant={variant}
             onClick={onConfirm}
             loading={loading}
+            disabled={loading || confirmDisabled}
           >
             {confirmLabel}
           </Button>
         </>
       }
     >
-      <p className="text-sm text-slate-600">{message}</p>
+      <div className="space-y-3 text-sm text-slate-600">{message}</div>
     </Modal>
   )
 }

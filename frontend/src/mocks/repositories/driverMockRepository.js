@@ -12,6 +12,7 @@ import {
   singleResponse,
 } from '../mockHelpers'
 import { authMockRepository } from './authMockRepository'
+import { getLicenseCondition } from '../../features/drivers/doesDriverMatchFilters'
 
 function findDriverOrThrow(id) {
   const driver = getDb().drivers.find((item) => item.id === id)
@@ -36,14 +37,44 @@ function assertManualStatus(status) {
   }
 }
 
+function buildDriverDetail(driver) {
+  const trips = getDb()
+    .trips.filter((item) => item.driverId === driver.id)
+    .map((trip) => ({ ...trip }))
+    .sort((left, right) =>
+      String(right.createdAt || '').localeCompare(String(left.createdAt || '')),
+    )
+
+  return {
+    ...driver,
+    tripCount: trips.length,
+    trips,
+  }
+}
+
 export const driverMockRepository = {
   async list(query = {}) {
     await mockDelay()
     authMockRepository.requireSessionUser()
     let items = [...getDb().drivers]
+
     if (query.status) {
       items = items.filter((item) => item.status === query.status)
     }
+
+    if (query.licenseCategory) {
+      items = items.filter(
+        (item) => item.licenseCategory === query.licenseCategory,
+      )
+    }
+
+    if (query.licenseCondition) {
+      items = items.filter(
+        (item) =>
+          getLicenseCondition(item.licenseExpiryDate) === query.licenseCondition,
+      )
+    }
+
     items = applySearch(items, query, [
       'name',
       'licenseNumber',
@@ -56,18 +87,32 @@ export const driverMockRepository = {
   async getById(id) {
     await mockDelay()
     authMockRepository.requireSessionUser()
-    return singleResponse(findDriverOrThrow(id))
+    return singleResponse(buildDriverDetail(findDriverOrThrow(id)))
   },
 
   async getAvailable(query = {}) {
     await mockDelay()
     authMockRepository.requireSessionUser()
-    const items = getDb().drivers.filter(
+    let items = getDb().drivers.filter(
       (item) =>
         item.status === DRIVER_STATUS.AVAILABLE &&
         !isLicenseExpired(item.licenseExpiryDate),
     )
-    return paginateItems(applySort(items, query, 'name'), {
+
+    if (query.licenseCategory) {
+      items = items.filter(
+        (item) => item.licenseCategory === query.licenseCategory,
+      )
+    }
+
+    items = applySearch(items, query, [
+      'name',
+      'licenseNumber',
+      'contactNumber',
+    ])
+    items = applySort(items, query, 'name')
+
+    return paginateItems(items, {
       ...query,
       pageSize: query.pageSize || items.length || 10,
     })
@@ -84,8 +129,8 @@ export const driverMockRepository = {
       throw new ApiError({
         status: 409,
         code: 'DUPLICATE_LICENSE',
-        message: 'License number already exists',
-        fieldErrors: { licenseNumber: 'License number already exists' },
+        message: 'Licence number already exists',
+        fieldErrors: { licenseNumber: 'Licence number already exists' },
       })
     }
 
@@ -103,6 +148,7 @@ export const driverMockRepository = {
       })
     }
 
+    const now = new Date().toISOString()
     const driver = {
       id: createId('drv'),
       name: String(payload.name || '').trim(),
@@ -112,7 +158,8 @@ export const driverMockRepository = {
       contactNumber: String(payload.contactNumber || '').trim(),
       safetyScore: Number(payload.safetyScore ?? 0),
       status: payload.status || DRIVER_STATUS.AVAILABLE,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     }
 
     db.drivers.unshift(driver)
@@ -138,8 +185,8 @@ export const driverMockRepository = {
       throw new ApiError({
         status: 409,
         code: 'DUPLICATE_LICENSE',
-        message: 'License number already exists',
-        fieldErrors: { licenseNumber: 'License number already exists' },
+        message: 'Licence number already exists',
+        fieldErrors: { licenseNumber: 'Licence number already exists' },
       })
     }
 
@@ -171,7 +218,7 @@ export const driverMockRepository = {
       updatedAt: new Date().toISOString(),
     })
 
-    return singleResponse(driver)
+    return singleResponse({ ...driver })
   },
 
   async changeStatus(id, status) {
@@ -185,9 +232,9 @@ export const driverMockRepository = {
       driver.status === DRIVER_STATUS.ON_TRIP
     ) {
       throw new ApiError({
-        status: 400,
+        status: 409,
         code: 'DRIVER_ON_TRIP',
-        message: 'ON_TRIP driver cannot suspend',
+        message: 'ON_TRIP driver cannot be suspended',
       })
     }
 
@@ -204,6 +251,10 @@ export const driverMockRepository = {
 
     driver.status = status
     driver.updatedAt = new Date().toISOString()
-    return singleResponse(driver)
+    return singleResponse({ ...driver })
+  },
+
+  async suspend(id) {
+    return this.changeStatus(id, DRIVER_STATUS.SUSPENDED)
   },
 }

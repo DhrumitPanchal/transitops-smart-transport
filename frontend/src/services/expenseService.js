@@ -2,14 +2,22 @@ import apiClient from '../api/apiClient'
 import { ENDPOINTS } from '../api/endpoints'
 import { isMockMode } from './serviceMode'
 import { expenseMockRepository } from '../mocks/repositories/expenseMockRepository'
+import {
+  fromApiDetail,
+  fromApiList,
+  toApiQuery,
+  toApiRequest,
+} from '../mappers/expenseMapper'
 
 export async function list(params = {}) {
   if (isMockMode()) {
     return expenseMockRepository.list(params)
   }
 
-  const { data } = await apiClient.get(ENDPOINTS.EXPENSES.BASE, { params })
-  return data
+  const { data } = await apiClient.get(ENDPOINTS.EXPENSES.BASE, {
+    params: toApiQuery(params),
+  })
+  return fromApiList(data)
 }
 
 export async function getById(id) {
@@ -18,7 +26,7 @@ export async function getById(id) {
   }
 
   const { data } = await apiClient.get(ENDPOINTS.EXPENSES.BY_ID(id))
-  return data
+  return fromApiDetail(data)
 }
 
 export async function create(payload) {
@@ -26,8 +34,11 @@ export async function create(payload) {
     return expenseMockRepository.create(payload)
   }
 
-  const { data } = await apiClient.post(ENDPOINTS.EXPENSES.BASE, payload)
-  return data
+  const { data } = await apiClient.post(
+    ENDPOINTS.EXPENSES.BASE,
+    toApiRequest(payload),
+  )
+  return fromApiDetail(data)
 }
 
 export async function update(id, payload) {
@@ -35,8 +46,11 @@ export async function update(id, payload) {
     return expenseMockRepository.update(id, payload)
   }
 
-  const { data } = await apiClient.put(ENDPOINTS.EXPENSES.BY_ID(id), payload)
-  return data
+  const { data } = await apiClient.put(
+    ENDPOINTS.EXPENSES.BY_ID(id),
+    toApiRequest(payload),
+  )
+  return fromApiDetail(data)
 }
 
 export async function remove(id) {
@@ -45,5 +59,5 @@ export async function remove(id) {
   }
 
   const { data } = await apiClient.delete(ENDPOINTS.EXPENSES.BY_ID(id))
-  return data
+  return fromApiDetail(data)
 }

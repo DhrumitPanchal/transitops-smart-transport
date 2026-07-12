@@ -5,6 +5,7 @@ import {
   VEHICLE_STATUS,
 } from '../../constants/statuses'
 import { isLicenseExpired } from '../../utils/dateHelpers'
+import { parseDateValue } from '../../utils/dateHelpers'
 import { mockDelay } from '../mockDelay'
 import { getDb } from '../db'
 import {
@@ -26,6 +27,28 @@ function findTripOrThrow(id) {
     })
   }
   return trip
+}
+
+function getLinkedResources(trip) {
+  const db = getDb()
+  const vehicle = db.vehicles.find((item) => item.id === trip.vehicleId) || null
+  const driver = db.drivers.find((item) => item.id === trip.driverId) || null
+  return { vehicle, driver }
+}
+
+function enrichTrip(trip) {
+  const { vehicle, driver } = getLinkedResources(trip)
+  return {
+    ...trip,
+    tripNumber: trip.tripNumber || trip.id,
+    vehicle,
+    driver,
+    vehicleRegistration: vehicle?.registrationNumber || null,
+    vehicleName: vehicle?.vehicleName || null,
+    vehicleCapacity: vehicle?.maxLoadCapacity ?? null,
+    driverName: driver?.name || null,
+    driverLicenseCategory: driver?.licenseCategory || null,
+  }
 }
 
 function assertDispatchResources(vehicle, driver, cargoWeight) {
@@ -84,23 +107,81 @@ function assertDispatchResources(vehicle, driver, cargoWeight) {
   }
 }
 
+function inDateRange(createdAt, dateFrom, dateTo) {
+  const created = parseDateValue(createdAt)
+  if (!created) return true
+
+  if (dateFrom) {
+    const from = parseDateValue(dateFrom)
+    if (from && created < from) return false
+  }
+
+  if (dateTo) {
+    const to = parseDateValue(dateTo)
+    if (to) {
+      const end = new Date(to)
+      end.setHours(23, 59, 59, 999)
+      if (created > end) return false
+    }
+  }
+
+  return true
+}
+
+function linkedResponse(trip, extras = {}) {
+  const enriched = enrichTrip(trip)
+  return {
+    data: {
+      trip: enriched,
+      vehicle: extras.vehicle ?? enriched.vehicle,
+      driver: extras.driver ?? enriched.driver,
+      fuelLog: extras.fuelLog ?? null,
+    },
+  }
+}
+
 export const tripMockRepository = {
   async list(query = {}) {
     await mockDelay()
     authMockRepository.requireSessionUser()
     let items = [...getDb().trips]
+
     if (query.status) {
       items = items.filter((item) => item.status === query.status)
     }
-    items = applySearch(items, query, ['source', 'destination', 'id'])
+
+    if (query.vehicleId) {
+      items = items.filter((item) => item.vehicleId === query.vehicleId)
+    }
+
+    if (query.driverId) {
+      items = items.filter((item) => item.driverId === query.driverId)
+    }
+
+    if (query.dateFrom || query.dateTo) {
+      items = items.filter((item) =>
+        inDateRange(item.createdAt, query.dateFrom, query.dateTo),
+      )
+    }
+
+    items = applySearch(items, query, [
+      'source',
+      'destination',
+      'id',
+      'tripNumber',
+    ])
     items = applySort(items, query, 'createdAt')
-    return paginateItems(items, query)
+    const page = paginateItems(items, query)
+    return {
+      ...page,
+      data: page.data.map((trip) => enrichTrip(trip)),
+    }
   },
 
   async getById(id) {
     await mockDelay()
     authMockRepository.requireSessionUser()
-    return singleResponse(findTripOrThrow(id))
+    return singleResponse(enrichTrip(findTripOrThrow(id)))
   },
 
   async create(payload) {
@@ -137,8 +218,11 @@ export const tripMockRepository = {
       })
     }
 
+    const now = new Date().toISOString()
+    const id = createId('trip')
     const trip = {
-      id: createId('trip'),
+      id,
+      tripNumber: `TRP-${String(db.trips.length + 1).padStart(4, '0')}`,
       source: String(payload.source || '').trim(),
       destination: String(payload.destination || '').trim(),
       vehicleId: payload.vehicleId,
@@ -151,11 +235,12 @@ export const tripMockRepository = {
           : Number(payload.revenue),
       status: TRIP_STATUS.DRAFT,
       startOdometer: Number(vehicle.odometer || 0),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     }
 
     db.trips.unshift(trip)
-    return singleResponse(trip)
+    return singleResponse(enrichTrip(trip))
   },
 
   async updateDraft(id, payload) {
@@ -212,7 +297,7 @@ export const tripMockRepository = {
       updatedAt: new Date().toISOString(),
     })
 
-    return singleResponse(trip)
+    return singleResponse(enrichTrip(trip))
   },
 
   async dispatch(id) {
@@ -233,16 +318,20 @@ export const tripMockRepository = {
     const driver = db.drivers.find((item) => item.id === trip.driverId)
     assertDispatchResources(vehicle, driver, trip.cargoWeight)
 
-    // Linked status changes succeed together.
+    const dispatchedAt = new Date().toISOString()
     trip.status = TRIP_STATUS.DISPATCHED
-    trip.dispatchedAt = new Date().toISOString()
+    trip.dispatchedAt = dispatchedAt
     trip.startOdometer = Number(vehicle.odometer || 0)
+    trip.updatedAt = dispatchedAt
     vehicle.status = VEHICLE_STATUS.ON_TRIP
     driver.status = DRIVER_STATUS.ON_TRIP
-    vehicle.updatedAt = trip.dispatchedAt
-    driver.updatedAt = trip.dispatchedAt
+    vehicle.updatedAt = dispatchedAt
+    driver.updatedAt = dispatchedAt
 
-    return singleResponse(trip)
+    return linkedResponse(trip, {
+      vehicle: { ...vehicle },
+      driver: { ...driver },
+    })
   },
 
   async complete(id, payload = {}) {
@@ -292,6 +381,7 @@ export const tripMockRepository = {
         ? trip.revenue
         : Number(payload.revenue)
     trip.completedAt = completedAt
+    trip.updatedAt = completedAt
 
     vehicle.status = VEHICLE_STATUS.AVAILABLE
     vehicle.odometer = finalOdometer
@@ -299,7 +389,25 @@ export const tripMockRepository = {
     vehicle.updatedAt = completedAt
     driver.updatedAt = completedAt
 
-    return singleResponse(trip)
+    const fuelLog = {
+      id: createId('fuel'),
+      vehicleId: vehicle.id,
+      tripId: trip.id,
+      liters: Number(payload.fuelConsumed),
+      cost: Number(payload.fuelCost),
+      fuelDate: completedAt.slice(0, 10),
+      odometerReading: finalOdometer,
+      stationName: 'Trip completion',
+      notes: 'Auto-logged on trip completion',
+      createdAt: completedAt,
+    }
+    db.fuelLogs.unshift(fuelLog)
+
+    return linkedResponse(trip, {
+      vehicle: { ...vehicle },
+      driver: { ...driver },
+      fuelLog,
+    })
   },
 
   async cancel(id, payload = {}) {
@@ -308,9 +416,7 @@ export const tripMockRepository = {
     const db = getDb()
     const trip = findTripOrThrow(id)
 
-    if (
-      ![TRIP_STATUS.DRAFT, TRIP_STATUS.DISPATCHED].includes(trip.status)
-    ) {
+    if (![TRIP_STATUS.DRAFT, TRIP_STATUS.DISPATCHED].includes(trip.status)) {
       throw new ApiError({
         status: 400,
         code: 'TRIP_NOT_CANCELLABLE',
@@ -334,12 +440,16 @@ export const tripMockRepository = {
     trip.status = TRIP_STATUS.CANCELLED
     trip.cancelReason = reason
     trip.cancelledAt = cancelledAt
+    trip.updatedAt = cancelledAt
+
+    let vehicle
+    let driver
 
     if (wasDispatched) {
-      const vehicle = db.vehicles.find((item) => item.id === trip.vehicleId)
-      const driver = db.drivers.find((item) => item.id === trip.driverId)
+      const linkedVehicle = db.vehicles.find((item) => item.id === trip.vehicleId)
+      const linkedDriver = db.drivers.find((item) => item.id === trip.driverId)
 
-      if (!vehicle || !driver) {
+      if (!linkedVehicle || !linkedDriver) {
         throw new ApiError({
           status: 400,
           code: 'INVALID_RESOURCES',
@@ -347,12 +457,18 @@ export const tripMockRepository = {
         })
       }
 
-      vehicle.status = VEHICLE_STATUS.AVAILABLE
-      driver.status = DRIVER_STATUS.AVAILABLE
-      vehicle.updatedAt = cancelledAt
-      driver.updatedAt = cancelledAt
+      linkedVehicle.status = VEHICLE_STATUS.AVAILABLE
+      linkedDriver.status = DRIVER_STATUS.AVAILABLE
+      linkedVehicle.updatedAt = cancelledAt
+      linkedDriver.updatedAt = cancelledAt
+      vehicle = { ...linkedVehicle }
+      driver = { ...linkedDriver }
+    } else {
+      const linked = getLinkedResources(trip)
+      vehicle = linked.vehicle ? { ...linked.vehicle } : null
+      driver = linked.driver ? { ...linked.driver } : null
     }
 
-    return singleResponse(trip)
+    return linkedResponse(trip, { vehicle, driver })
   },
 }
