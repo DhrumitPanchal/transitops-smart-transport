@@ -1,5 +1,9 @@
 import { ApiError } from '../../api/apiError'
-import { VEHICLE_STATUS } from '../../constants/statuses'
+import {
+  MAINTENANCE_STATUS,
+  TRIP_STATUS,
+  VEHICLE_STATUS,
+} from '../../constants/statuses'
 import { mockDelay } from '../mockDelay'
 import { getDb } from '../db'
 import {
@@ -24,6 +28,44 @@ function findVehicleOrThrow(id) {
   return vehicle
 }
 
+function buildVehicleDetail(vehicle) {
+  const db = getDb()
+  const trips = db.trips.filter((item) => item.vehicleId === vehicle.id)
+  const maintenanceItems = db.maintenance.filter(
+    (item) => item.vehicleId === vehicle.id,
+  )
+  const fuelLogs = db.fuelLogs.filter((item) => item.vehicleId === vehicle.id)
+  const expenses = db.expenses.filter((item) => item.vehicleId === vehicle.id)
+
+  const activeTrip =
+    trips.find((item) => item.status === TRIP_STATUS.DISPATCHED) || null
+  const activeMaintenance =
+    maintenanceItems.find((item) =>
+      [MAINTENANCE_STATUS.OPEN, MAINTENANCE_STATUS.IN_PROGRESS].includes(
+        item.status,
+      ),
+    ) || null
+
+  const totalFuelCost = fuelLogs.reduce(
+    (sum, item) => sum + Number(item.cost || 0),
+    0,
+  )
+  const totalExpenseCost = expenses.reduce(
+    (sum, item) => sum + Number(item.amount || 0),
+    0,
+  )
+
+  return {
+    ...vehicle,
+    tripCount: trips.length,
+    activeTrip,
+    maintenanceCount: maintenanceItems.length,
+    activeMaintenance,
+    totalFuelCost,
+    totalExpenseCost,
+  }
+}
+
 export const vehicleMockRepository = {
   async list(query = {}) {
     await mockDelay()
@@ -31,14 +73,26 @@ export const vehicleMockRepository = {
     const db = getDb()
 
     let items = [...db.vehicles]
+
     if (query.status) {
       items = items.filter((item) => item.status === query.status)
     }
+
+    if (query.vehicleType) {
+      items = items.filter((item) => item.vehicleType === query.vehicleType)
+    }
+
+    if (query.region) {
+      const region = String(query.region).trim().toLowerCase()
+      items = items.filter(
+        (item) => String(item.region || '').trim().toLowerCase() === region,
+      )
+    }
+
     items = applySearch(items, query, [
       'registrationNumber',
       'vehicleName',
       'model',
-      'region',
     ])
     items = applySort(items, query, 'registrationNumber')
     return paginateItems(items, query)
@@ -47,16 +101,35 @@ export const vehicleMockRepository = {
   async getById(id) {
     await mockDelay()
     authMockRepository.requireSessionUser()
-    return singleResponse(findVehicleOrThrow(id))
+    return singleResponse(buildVehicleDetail(findVehicleOrThrow(id)))
   },
 
   async getAvailable(query = {}) {
     await mockDelay()
     authMockRepository.requireSessionUser()
-    const items = getDb().vehicles.filter(
+    let items = getDb().vehicles.filter(
       (item) => item.status === VEHICLE_STATUS.AVAILABLE,
     )
-    return paginateItems(applySort(items, query, 'registrationNumber'), {
+
+    if (query.vehicleType) {
+      items = items.filter((item) => item.vehicleType === query.vehicleType)
+    }
+
+    if (query.region) {
+      const region = String(query.region).trim().toLowerCase()
+      items = items.filter(
+        (item) => String(item.region || '').trim().toLowerCase() === region,
+      )
+    }
+
+    items = applySearch(items, query, [
+      'registrationNumber',
+      'vehicleName',
+      'model',
+    ])
+    items = applySort(items, query, 'registrationNumber')
+
+    return paginateItems(items, {
       ...query,
       pageSize: query.pageSize || items.length || 10,
     })
@@ -92,6 +165,7 @@ export const vehicleMockRepository = {
       })
     }
 
+    const now = new Date().toISOString()
     const vehicle = {
       id: createId('veh'),
       registrationNumber,
@@ -103,7 +177,8 @@ export const vehicleMockRepository = {
       acquisitionCost: Number(payload.acquisitionCost || 0),
       region: String(payload.region || '').trim(),
       status: payload.status || VEHICLE_STATUS.AVAILABLE,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     }
 
     db.vehicles.unshift(vehicle)
@@ -164,7 +239,7 @@ export const vehicleMockRepository = {
       updatedAt: new Date().toISOString(),
     })
 
-    return singleResponse(vehicle)
+    return singleResponse({ ...vehicle })
   },
 
   async retire(id) {
@@ -174,18 +249,22 @@ export const vehicleMockRepository = {
 
     if (vehicle.status === VEHICLE_STATUS.ON_TRIP) {
       throw new ApiError({
-        status: 400,
+        status: 409,
         code: 'VEHICLE_ON_TRIP',
-        message: 'ON_TRIP vehicle cannot retire',
+        message: 'ON_TRIP vehicle cannot be retired',
       })
     }
 
     if (vehicle.status === VEHICLE_STATUS.RETIRED) {
-      return singleResponse(vehicle)
+      throw new ApiError({
+        status: 409,
+        code: 'VEHICLE_ALREADY_RETIRED',
+        message: 'Vehicle is already retired',
+      })
     }
 
     vehicle.status = VEHICLE_STATUS.RETIRED
     vehicle.updatedAt = new Date().toISOString()
-    return singleResponse(vehicle)
+    return singleResponse({ ...vehicle })
   },
 }

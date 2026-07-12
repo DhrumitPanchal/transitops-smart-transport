@@ -3,6 +3,7 @@ import {
   MAINTENANCE_STATUS,
   VEHICLE_STATUS,
 } from '../../constants/statuses'
+import { parseDateValue } from '../../utils/dateHelpers'
 import { mockDelay } from '../mockDelay'
 import { getDb } from '../db'
 import {
@@ -26,26 +27,140 @@ function findMaintenanceOrThrow(id) {
   return record
 }
 
+function getVehicle(vehicleId) {
+  return getDb().vehicles.find((item) => item.id === vehicleId) || null
+}
+
+function enrichMaintenance(record) {
+  const vehicle = getVehicle(record.vehicleId)
+  return {
+    ...record,
+    vehicle,
+    vehicleRegistration: vehicle?.registrationNumber || null,
+    vehicleName: vehicle?.vehicleName || null,
+  }
+}
+
+function inDateRange(startDate, dateFrom, dateTo) {
+  const start = parseDateValue(startDate)
+  if (!start) return true
+
+  if (dateFrom) {
+    const from = parseDateValue(dateFrom)
+    if (from && start < from) return false
+  }
+
+  if (dateTo) {
+    const to = parseDateValue(dateTo)
+    if (to) {
+      const end = new Date(to)
+      end.setHours(23, 59, 59, 999)
+      if (start > end) return false
+    }
+  }
+
+  return true
+}
+
+function linkedResponse(record, vehicle) {
+  return {
+    data: {
+      maintenance: enrichMaintenance(record),
+      vehicle: vehicle ? { ...vehicle } : null,
+    },
+  }
+}
+
+function assertVehicleEligible(vehicle) {
+  if (!vehicle) {
+    throw new ApiError({
+      status: 400,
+      code: 'VEHICLE_REQUIRED',
+      message: 'Vehicle not found',
+      fieldErrors: { vehicleId: 'Vehicle not found' },
+    })
+  }
+
+  if (vehicle.status === VEHICLE_STATUS.ON_TRIP) {
+    throw new ApiError({
+      status: 400,
+      code: 'VEHICLE_ON_TRIP',
+      message: 'ON_TRIP vehicle cannot enter maintenance',
+      fieldErrors: { vehicleId: 'ON_TRIP vehicle cannot enter maintenance' },
+    })
+  }
+
+  if (vehicle.status === VEHICLE_STATUS.RETIRED) {
+    throw new ApiError({
+      status: 400,
+      code: 'VEHICLE_RETIRED',
+      message: 'Retired vehicles cannot enter maintenance',
+      fieldErrors: { vehicleId: 'Retired vehicles cannot enter maintenance' },
+    })
+  }
+}
+
 export const maintenanceMockRepository = {
   async list(query = {}) {
     await mockDelay()
     authMockRepository.requireSessionUser()
-    let items = [...getDb().maintenance]
+    const db = getDb()
+    let items = [...db.maintenance]
+
     if (query.status) {
       items = items.filter((item) => item.status === query.status)
     }
+
+    if (query.maintenanceType) {
+      items = items.filter(
+        (item) => item.maintenanceType === query.maintenanceType,
+      )
+    }
+
     if (query.vehicleId) {
       items = items.filter((item) => item.vehicleId === query.vehicleId)
     }
-    items = applySearch(items, query, ['description', 'vendorName', 'id'])
+
+    if (query.dateFrom || query.dateTo) {
+      items = items.filter((item) =>
+        inDateRange(item.startDate, query.dateFrom, query.dateTo),
+      )
+    }
+
+    const term = String(query.search || '')
+      .trim()
+      .toLowerCase()
+    if (term) {
+      items = items.filter((item) => {
+        const vehicle = getVehicle(item.vehicleId)
+        const haystack = [
+          item.description,
+          item.vendorName,
+          item.id,
+          vehicle?.registrationNumber,
+          vehicle?.vehicleName,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return haystack.includes(term)
+      })
+    } else {
+      items = applySearch(items, query, ['description', 'vendorName', 'id'])
+    }
+
     items = applySort(items, query, 'createdAt')
-    return paginateItems(items, query)
+    const page = paginateItems(items, query)
+    return {
+      ...page,
+      data: page.data.map((item) => enrichMaintenance(item)),
+    }
   },
 
   async getById(id) {
     await mockDelay()
     authMockRepository.requireSessionUser()
-    return singleResponse(findMaintenanceOrThrow(id))
+    return singleResponse(enrichMaintenance(findMaintenanceOrThrow(id)))
   },
 
   async create(payload) {
@@ -53,33 +168,7 @@ export const maintenanceMockRepository = {
     authMockRepository.requireSessionUser()
     const db = getDb()
     const vehicle = db.vehicles.find((item) => item.id === payload.vehicleId)
-
-    if (!vehicle) {
-      throw new ApiError({
-        status: 400,
-        code: 'VEHICLE_REQUIRED',
-        message: 'Vehicle not found',
-        fieldErrors: { vehicleId: 'Vehicle not found' },
-      })
-    }
-
-    if (vehicle.status === VEHICLE_STATUS.ON_TRIP) {
-      throw new ApiError({
-        status: 400,
-        code: 'VEHICLE_ON_TRIP',
-        message: 'ON_TRIP vehicle cannot enter maintenance',
-        fieldErrors: { vehicleId: 'ON_TRIP vehicle cannot enter maintenance' },
-      })
-    }
-
-    if (vehicle.status === VEHICLE_STATUS.RETIRED) {
-      throw new ApiError({
-        status: 400,
-        code: 'VEHICLE_RETIRED',
-        message: 'Retired vehicles cannot enter maintenance',
-        fieldErrors: { vehicleId: 'Retired vehicles cannot enter maintenance' },
-      })
-    }
+    assertVehicleEligible(vehicle)
 
     const status = payload.status || MAINTENANCE_STATUS.OPEN
     if (
@@ -95,6 +184,7 @@ export const maintenanceMockRepository = {
       })
     }
 
+    const now = new Date().toISOString()
     const record = {
       id: createId('mnt'),
       vehicleId: payload.vehicleId,
@@ -106,14 +196,15 @@ export const maintenanceMockRepository = {
       vendorName: String(payload.vendorName || '').trim(),
       notes: String(payload.notes || '').trim(),
       status,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     }
 
     db.maintenance.unshift(record)
     vehicle.status = VEHICLE_STATUS.IN_SHOP
-    vehicle.updatedAt = record.createdAt
+    vehicle.updatedAt = now
 
-    return singleResponse(record)
+    return linkedResponse(record, vehicle)
   },
 
   async update(id, payload) {
@@ -145,7 +236,8 @@ export const maintenanceMockRepository = {
       updatedAt: new Date().toISOString(),
     })
 
-    return singleResponse(record)
+    const vehicle = getVehicle(record.vehicleId)
+    return linkedResponse(record, vehicle)
   },
 
   async complete(id, payload = {}) {
@@ -179,15 +271,17 @@ export const maintenanceMockRepository = {
     record.status = MAINTENANCE_STATUS.COMPLETED
     record.completionDate = payload.completionDate
     record.finalCost = Number(payload.finalCost ?? record.cost)
+    record.cost = Number(payload.finalCost ?? record.cost)
     record.notes = String(payload.notes ?? record.notes).trim()
     record.completedAt = completedAt
+    record.updatedAt = completedAt
 
     if (vehicle.status !== VEHICLE_STATUS.RETIRED) {
       vehicle.status = VEHICLE_STATUS.AVAILABLE
       vehicle.updatedAt = completedAt
     }
 
-    return singleResponse(record)
+    return linkedResponse(record, vehicle)
   },
 
   async cancel(id, payload = {}) {
@@ -224,12 +318,13 @@ export const maintenanceMockRepository = {
     record.status = MAINTENANCE_STATUS.CANCELLED
     record.cancelReason = reason
     record.cancelledAt = cancelledAt
+    record.updatedAt = cancelledAt
 
     if (vehicle && vehicle.status !== VEHICLE_STATUS.RETIRED) {
       vehicle.status = VEHICLE_STATUS.AVAILABLE
       vehicle.updatedAt = cancelledAt
     }
 
-    return singleResponse(record)
+    return linkedResponse(record, vehicle)
   },
 }

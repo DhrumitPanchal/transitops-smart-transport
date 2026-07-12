@@ -1,6 +1,17 @@
 import { registerVehicleRealtimeHandlers } from './vehicleRealtimeHandlers'
+import { registerDriverRealtimeHandlers } from './driverRealtimeHandlers'
+import { registerTripRealtimeHandlers } from './tripRealtimeHandlers'
+import { registerMaintenanceRealtimeHandlers } from './maintenanceRealtimeHandlers'
+import { registerFuelRealtimeHandlers } from './fuelRealtimeHandlers'
+import { registerExpenseRealtimeHandlers } from './expenseRealtimeHandlers'
+import { registerDashboardRealtimeHandlers } from './dashboardRealtimeHandlers'
 
 export { doesVehicleMatchFilters } from './vehicleRealtimeHandlers'
+export { doesDriverMatchFilters } from './driverRealtimeHandlers'
+export { doesTripMatchFilters } from './tripRealtimeHandlers'
+export { doesMaintenanceMatchFilters } from './maintenanceRealtimeHandlers'
+export { doesFuelLogMatchFilters } from './fuelRealtimeHandlers'
+export { doesExpenseMatchFilters } from './expenseRealtimeHandlers'
 
 /**
  * Registers all central Socket.IO cache handlers once per connection.
@@ -11,7 +22,15 @@ export function registerRealtimeHandlers(socket, queryClient) {
     return () => {}
   }
 
-  const cleanups = [registerVehicleRealtimeHandlers(socket, queryClient)]
+  const cleanups = [
+    registerVehicleRealtimeHandlers(socket, queryClient),
+    registerDriverRealtimeHandlers(socket, queryClient),
+    registerTripRealtimeHandlers(socket, queryClient),
+    registerMaintenanceRealtimeHandlers(socket, queryClient),
+    registerFuelRealtimeHandlers(socket, queryClient),
+    registerExpenseRealtimeHandlers(socket, queryClient),
+    registerDashboardRealtimeHandlers(socket, queryClient),
+  ]
 
   return () => {
     cleanups.forEach((cleanup) => {

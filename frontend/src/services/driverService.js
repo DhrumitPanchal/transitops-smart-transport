@@ -50,6 +50,17 @@ export async function changeStatus(id, status) {
   return data
 }
 
+export async function suspend(id) {
+  if (isMockMode()) {
+    return driverMockRepository.suspend(id)
+  }
+
+  const { data } = await apiClient.patch(ENDPOINTS.DRIVERS.STATUS(id), {
+    status: 'SUSPENDED',
+  })
+  return data
+}
+
 export async function getAvailable(params = {}) {
   if (isMockMode()) {
     return driverMockRepository.getAvailable(params)

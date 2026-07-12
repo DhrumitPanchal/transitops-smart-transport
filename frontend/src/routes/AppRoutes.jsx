@@ -12,17 +12,19 @@ import { useAuth } from '../hooks/useAuth'
 
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'))
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'))
-const VehiclesListPage = lazy(() => import('../pages/vehicles/VehiclesListPage'))
+const VehicleListPage = lazy(() => import('../pages/vehicles/VehicleListPage'))
 const VehicleCreatePage = lazy(() => import('../pages/vehicles/VehicleCreatePage'))
-const VehicleDetailPage = lazy(() => import('../pages/vehicles/VehicleDetailPage'))
+const VehicleDetailsPage = lazy(
+  () => import('../pages/vehicles/VehicleDetailsPage'),
+)
 const VehicleEditPage = lazy(() => import('../pages/vehicles/VehicleEditPage'))
-const DriversListPage = lazy(() => import('../pages/drivers/DriversListPage'))
+const DriverListPage = lazy(() => import('../pages/drivers/DriverListPage'))
 const DriverCreatePage = lazy(() => import('../pages/drivers/DriverCreatePage'))
-const DriverDetailPage = lazy(() => import('../pages/drivers/DriverDetailPage'))
+const DriverDetailsPage = lazy(() => import('../pages/drivers/DriverDetailsPage'))
 const DriverEditPage = lazy(() => import('../pages/drivers/DriverEditPage'))
-const TripsListPage = lazy(() => import('../pages/trips/TripsListPage'))
+const TripListPage = lazy(() => import('../pages/trips/TripListPage'))
 const TripCreatePage = lazy(() => import('../pages/trips/TripCreatePage'))
-const TripDetailPage = lazy(() => import('../pages/trips/TripDetailPage'))
+const TripDetailsPage = lazy(() => import('../pages/trips/TripDetailsPage'))
 const TripEditPage = lazy(() => import('../pages/trips/TripEditPage'))
 const MaintenanceListPage = lazy(
   () => import('../pages/maintenance/MaintenanceListPage'),
@@ -30,19 +32,25 @@ const MaintenanceListPage = lazy(
 const MaintenanceCreatePage = lazy(
   () => import('../pages/maintenance/MaintenanceCreatePage'),
 )
-const MaintenanceDetailPage = lazy(
-  () => import('../pages/maintenance/MaintenanceDetailPage'),
+const MaintenanceDetailsPage = lazy(
+  () => import('../pages/maintenance/MaintenanceDetailsPage'),
 )
 const MaintenanceEditPage = lazy(
   () => import('../pages/maintenance/MaintenanceEditPage'),
 )
-const FuelListPage = lazy(() => import('../pages/fuel/FuelListPage'))
-const FuelCreatePage = lazy(() => import('../pages/fuel/FuelCreatePage'))
-const FuelDetailPage = lazy(() => import('../pages/fuel/FuelDetailPage'))
-const FuelEditPage = lazy(() => import('../pages/fuel/FuelEditPage'))
-const ExpensesListPage = lazy(() => import('../pages/expenses/ExpensesListPage'))
-const ExpenseCreatePage = lazy(() => import('../pages/expenses/ExpenseCreatePage'))
-const ExpenseDetailPage = lazy(() => import('../pages/expenses/ExpenseDetailPage'))
+const FuelLogListPage = lazy(() => import('../pages/fuel/FuelLogListPage'))
+const FuelLogCreatePage = lazy(() => import('../pages/fuel/FuelLogCreatePage'))
+const FuelLogDetailsPage = lazy(
+  () => import('../pages/fuel/FuelLogDetailsPage'),
+)
+const FuelLogEditPage = lazy(() => import('../pages/fuel/FuelLogEditPage'))
+const ExpenseListPage = lazy(() => import('../pages/expenses/ExpenseListPage'))
+const ExpenseCreatePage = lazy(
+  () => import('../pages/expenses/ExpenseCreatePage'),
+)
+const ExpenseDetailsPage = lazy(
+  () => import('../pages/expenses/ExpenseDetailsPage'),
+)
 const ExpenseEditPage = lazy(() => import('../pages/expenses/ExpenseEditPage'))
 const ReportsPage = lazy(() => import('../pages/reports/ReportsPage'))
 const UsersListPage = lazy(() => import('../pages/users/UsersListPage'))
@@ -100,10 +108,10 @@ export default function AppRoutes() {
                 <PermissionRoute permission={PERMISSIONS.VEHICLES_VIEW} />
               }
             >
-              <Route path={ROUTES.VEHICLES} element={<VehiclesListPage />} />
+              <Route path={ROUTES.VEHICLES} element={<VehicleListPage />} />
               <Route
                 path={ROUTES.VEHICLE_DETAIL}
-                element={<VehicleDetailPage />}
+                element={<VehicleDetailsPage />}
               />
             </Route>
 
@@ -131,8 +139,11 @@ export default function AppRoutes() {
                 <PermissionRoute permission={PERMISSIONS.DRIVERS_VIEW} />
               }
             >
-              <Route path={ROUTES.DRIVERS} element={<DriversListPage />} />
-              <Route path={ROUTES.DRIVER_DETAIL} element={<DriverDetailPage />} />
+              <Route path={ROUTES.DRIVERS} element={<DriverListPage />} />
+              <Route
+                path={ROUTES.DRIVER_DETAIL}
+                element={<DriverDetailsPage />}
+              />
             </Route>
 
             <Route
@@ -154,8 +165,8 @@ export default function AppRoutes() {
             <Route
               element={<PermissionRoute permission={PERMISSIONS.TRIPS_VIEW} />}
             >
-              <Route path={ROUTES.TRIPS} element={<TripsListPage />} />
-              <Route path={ROUTES.TRIP_DETAIL} element={<TripDetailPage />} />
+              <Route path={ROUTES.TRIPS} element={<TripListPage />} />
+              <Route path={ROUTES.TRIP_DETAIL} element={<TripDetailsPage />} />
             </Route>
 
             <Route
@@ -185,7 +196,7 @@ export default function AppRoutes() {
               />
               <Route
                 path={ROUTES.MAINTENANCE_DETAIL}
-                element={<MaintenanceDetailPage />}
+                element={<MaintenanceDetailsPage />}
               />
             </Route>
 
@@ -214,20 +225,23 @@ export default function AppRoutes() {
             <Route
               element={<PermissionRoute permission={PERMISSIONS.FUEL_VIEW} />}
             >
-              <Route path={ROUTES.FUEL} element={<FuelListPage />} />
-              <Route path={ROUTES.FUEL_DETAIL} element={<FuelDetailPage />} />
+              <Route path={ROUTES.FUEL} element={<FuelLogListPage />} />
+              <Route
+                path={ROUTES.FUEL_DETAIL}
+                element={<FuelLogDetailsPage />}
+              />
             </Route>
 
             <Route
               element={<PermissionRoute permission={PERMISSIONS.FUEL_CREATE} />}
             >
-              <Route path={ROUTES.FUEL_NEW} element={<FuelCreatePage />} />
+              <Route path={ROUTES.FUEL_NEW} element={<FuelLogCreatePage />} />
             </Route>
 
             <Route
               element={<PermissionRoute permission={PERMISSIONS.FUEL_EDIT} />}
             >
-              <Route path={ROUTES.FUEL_EDIT} element={<FuelEditPage />} />
+              <Route path={ROUTES.FUEL_EDIT} element={<FuelLogEditPage />} />
             </Route>
 
             <Route
@@ -235,10 +249,10 @@ export default function AppRoutes() {
                 <PermissionRoute permission={PERMISSIONS.EXPENSES_VIEW} />
               }
             >
-              <Route path={ROUTES.EXPENSES} element={<ExpensesListPage />} />
+              <Route path={ROUTES.EXPENSES} element={<ExpenseListPage />} />
               <Route
                 path={ROUTES.EXPENSE_DETAIL}
-                element={<ExpenseDetailPage />}
+                element={<ExpenseDetailsPage />}
               />
             </Route>
 
