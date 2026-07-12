@@ -437,6 +437,366 @@ const getFinancialSummary = async ({ fromDate, toDate }) => {
   };
 };
 
+const toNumber = (value) => Number(value || 0);
+
+const endOfDay = (value) => {
+  const date = new Date(value);
+  date.setHours(23, 59, 59, 999);
+  return date;
+};
+
+const getReportSummary = async (filters = {}) => {
+  const fromDate = filters.fromDate || filters.dateFrom || null;
+  const toDate = filters.toDate || filters.dateTo || null;
+  const vehicleId = filters.vehicleId || null;
+  const vehicleType = filters.vehicleType || null;
+  const region = filters.region || null;
+
+  const vehicleWhere = {
+    isDeleted: false,
+    ...(vehicleId ? { id: vehicleId } : {}),
+    ...(vehicleType ? { vehicleType } : {}),
+    ...(region
+      ? { region: { equals: String(region).trim(), mode: "insensitive" } }
+      : {}),
+  };
+
+  const vehicles = await prisma.vehicle.findMany({
+    where: vehicleWhere,
+    select: {
+      id: true,
+      status: true,
+      purchaseCost: true,
+    },
+  });
+  const vehicleIds = vehicles.map((item) => item.id);
+
+  // When filters exclude every vehicle, return empty summary.
+  if (
+    (vehicleId || vehicleType || region) &&
+    vehicleIds.length === 0
+  ) {
+    return {
+      metrics: {
+        fuelEfficiency: 0,
+        fleetUtilization: 0,
+        fuelCost: 0,
+        maintenanceCost: 0,
+        otherExpenses: 0,
+        operationalCost: 0,
+        revenue: 0,
+        vehicleRoi: 0,
+      },
+      vehicles: {
+        total: 0,
+        available: 0,
+        onTrip: 0,
+        inShop: 0,
+        retired: 0,
+      },
+      drivers: {
+        total: 0,
+        available: 0,
+        onTrip: 0,
+        offDuty: 0,
+        suspended: 0,
+      },
+      trips: {
+        total: 0,
+        draft: 0,
+        dispatched: 0,
+        completed: 0,
+        cancelled: 0,
+        inProgress: 0,
+      },
+      maintenance: { open: 0, completed: 0 },
+      costs: { fuel: 0, expenses: 0, maintenance: 0 },
+      filters,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  const tripDateFilter =
+    fromDate || toDate
+      ? {
+          createdAt: {
+            ...(fromDate ? { gte: new Date(fromDate) } : {}),
+            ...(toDate ? { lte: endOfDay(toDate) } : {}),
+          },
+        }
+      : {};
+
+  const fuelDateFilter =
+    fromDate || toDate
+      ? {
+          fuelDate: {
+            ...(fromDate ? { gte: new Date(fromDate) } : {}),
+            ...(toDate ? { lte: endOfDay(toDate) } : {}),
+          },
+        }
+      : {};
+
+  const maintenanceDateFilter =
+    fromDate || toDate
+      ? {
+          scheduledDate: {
+            ...(fromDate ? { gte: new Date(fromDate) } : {}),
+            ...(toDate ? { lte: endOfDay(toDate) } : {}),
+          },
+        }
+      : {};
+
+  const expenseDateFilter =
+    fromDate || toDate
+      ? {
+          expenseDate: {
+            ...(fromDate ? { gte: new Date(fromDate) } : {}),
+            ...(toDate ? { lte: endOfDay(toDate) } : {}),
+          },
+        }
+      : {};
+
+  const tripWhere = {
+    ...(vehicleIds.length ? { vehicleId: { in: vehicleIds } } : {}),
+    ...tripDateFilter,
+  };
+
+  const [
+    tripGroups,
+    fuelAgg,
+    fuelQtyAgg,
+    maintenanceAgg,
+    maintenanceOpen,
+    maintenanceCompleted,
+    expenseAgg,
+    drivers,
+    completedTrips,
+  ] = await Promise.all([
+    prisma.trip.groupBy({
+      by: ["status"],
+      where: tripWhere,
+      _count: { _all: true },
+    }),
+    prisma.vehicleFuelLog.aggregate({
+      where: {
+        isDeleted: false,
+        ...(vehicleIds.length ? { vehicleId: { in: vehicleIds } } : {}),
+        ...fuelDateFilter,
+      },
+      _sum: { totalAmount: true },
+    }),
+    prisma.vehicleFuelLog.aggregate({
+      where: {
+        isDeleted: false,
+        ...(vehicleIds.length ? { vehicleId: { in: vehicleIds } } : {}),
+        ...fuelDateFilter,
+      },
+      _sum: { quantity: true },
+    }),
+    prisma.vehicleMaintenance.aggregate({
+      where: {
+        isDeleted: false,
+        status: "COMPLETED",
+        ...(vehicleIds.length ? { vehicleId: { in: vehicleIds } } : {}),
+        ...maintenanceDateFilter,
+      },
+      _sum: { actualCost: true },
+    }),
+    prisma.vehicleMaintenance.count({
+      where: {
+        isDeleted: false,
+        status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+        ...(vehicleIds.length ? { vehicleId: { in: vehicleIds } } : {}),
+        ...maintenanceDateFilter,
+      },
+    }),
+    prisma.vehicleMaintenance.count({
+      where: {
+        isDeleted: false,
+        status: "COMPLETED",
+        ...(vehicleIds.length ? { vehicleId: { in: vehicleIds } } : {}),
+        ...maintenanceDateFilter,
+      },
+    }),
+    prisma.expense.aggregate({
+      where: {
+        isDeleted: false,
+        ...(vehicleIds.length
+          ? {
+              OR: [
+                { vehicleId: { in: vehicleIds } },
+                { vehicleId: null },
+              ],
+            }
+          : {}),
+        ...expenseDateFilter,
+      },
+      _sum: { amount: true },
+    }),
+    prisma.driver.findMany({
+      where: { isDeleted: false },
+      select: { status: true },
+    }),
+    prisma.trip.findMany({
+      where: { ...tripWhere, status: "COMPLETED" },
+      select: {
+        distance: true,
+        startOdometer: true,
+        finalOdometer: true,
+        fuelConsumed: true,
+      },
+    }),
+  ]);
+
+  const tripCounts = tripGroups.reduce(
+    (acc, row) => {
+      acc[row.status] = row._count._all;
+      acc.total += row._count._all;
+      return acc;
+    },
+    {
+      total: 0,
+      DRAFT: 0,
+      DISPATCHED: 0,
+      IN_PROGRESS: 0,
+      COMPLETED: 0,
+      CANCELLED: 0,
+    },
+  );
+
+  const fuelCost = toNumber(fuelAgg._sum.totalAmount);
+  const maintenanceCost = toNumber(maintenanceAgg._sum.actualCost);
+  const otherExpenses = toNumber(expenseAgg._sum.amount);
+  const operationalCost = fuelCost + maintenanceCost + otherExpenses;
+
+  // Schema has no trip.revenue yet — keep 0 until that field exists.
+  const revenue = 0;
+  const acquisitionCost = vehicles
+    .filter((item) => item.status !== "RETIRED")
+    .reduce((sum, item) => sum + toNumber(item.purchaseCost), 0);
+  const net = revenue - operationalCost;
+  const vehicleRoi =
+    acquisitionCost > 0
+      ? Math.round((net / acquisitionCost) * 10000) / 100
+      : 0;
+
+  const totalLiters = toNumber(fuelQtyAgg._sum.quantity);
+  const totalDistance = completedTrips.reduce((sum, trip) => {
+    if (trip.finalOdometer != null && trip.startOdometer != null) {
+      return sum + (toNumber(trip.finalOdometer) - toNumber(trip.startOdometer));
+    }
+    return sum + toNumber(trip.distance);
+  }, 0);
+  const fuelEfficiency =
+    totalLiters > 0
+      ? Math.round((totalDistance / totalLiters) * 100) / 100
+      : 0;
+
+  const activeVehicles = vehicles.filter((item) => item.status !== "RETIRED");
+  const onTripVehicles = vehicles.filter((item) => item.status === "ON_TRIP").length;
+  const fleetUtilization =
+    activeVehicles.length > 0
+      ? Math.round((onTripVehicles / activeVehicles.length) * 10000) / 100
+      : 0;
+
+  const countByStatus = (list, status) =>
+    list.filter((item) => item.status === status).length;
+
+  return {
+    metrics: {
+      fuelEfficiency,
+      fleetUtilization,
+      fuelCost,
+      maintenanceCost,
+      otherExpenses,
+      operationalCost,
+      revenue,
+      vehicleRoi,
+    },
+    vehicles: {
+      total: vehicles.length,
+      available: countByStatus(vehicles, "AVAILABLE"),
+      onTrip: countByStatus(vehicles, "ON_TRIP"),
+      inShop: countByStatus(vehicles, "IN_SHOP"),
+      retired: countByStatus(vehicles, "RETIRED"),
+    },
+    drivers: {
+      total: drivers.length,
+      available: countByStatus(drivers, "AVAILABLE"),
+      onTrip: countByStatus(drivers, "ON_TRIP"),
+      offDuty: countByStatus(drivers, "OFF_DUTY"),
+      suspended: countByStatus(drivers, "SUSPENDED"),
+    },
+    trips: {
+      total: tripCounts.total,
+      draft: tripCounts.DRAFT,
+      dispatched: tripCounts.DISPATCHED,
+      inProgress: tripCounts.IN_PROGRESS,
+      completed: tripCounts.COMPLETED,
+      cancelled: tripCounts.CANCELLED,
+    },
+    maintenance: {
+      open: maintenanceOpen,
+      completed: maintenanceCompleted,
+    },
+    costs: {
+      fuel: fuelCost,
+      expenses: otherExpenses,
+      maintenance: maintenanceCost,
+    },
+    filters,
+    generatedAt: new Date().toISOString(),
+  };
+};
+
+const exportReportCsv = async (filters = {}) => {
+  const summary = await getReportSummary(filters);
+  const rows = [
+    ["Section", "Metric", "Value"],
+    ["Metrics", "Fuel Efficiency (km/L)", summary.metrics.fuelEfficiency],
+    ["Metrics", "Fleet Utilization (%)", summary.metrics.fleetUtilization],
+    ["Metrics", "Fuel Cost", summary.metrics.fuelCost],
+    ["Metrics", "Maintenance Cost", summary.metrics.maintenanceCost],
+    ["Metrics", "Other Expenses", summary.metrics.otherExpenses],
+    ["Metrics", "Operational Cost", summary.metrics.operationalCost],
+    ["Metrics", "Revenue", summary.metrics.revenue],
+    ["Metrics", "Vehicle ROI (%)", summary.metrics.vehicleRoi],
+    ["Vehicles", "Total", summary.vehicles.total],
+    ["Vehicles", "Available", summary.vehicles.available],
+    ["Vehicles", "On Trip", summary.vehicles.onTrip],
+    ["Vehicles", "In Shop", summary.vehicles.inShop],
+    ["Vehicles", "Retired", summary.vehicles.retired],
+    ["Drivers", "Total", summary.drivers.total],
+    ["Drivers", "Available", summary.drivers.available],
+    ["Drivers", "On Trip", summary.drivers.onTrip],
+    ["Drivers", "Off Duty", summary.drivers.offDuty],
+    ["Drivers", "Suspended", summary.drivers.suspended],
+    ["Trips", "Total", summary.trips.total],
+    ["Trips", "Draft", summary.trips.draft],
+    ["Trips", "Dispatched", summary.trips.dispatched],
+    ["Trips", "Completed", summary.trips.completed],
+    ["Trips", "Cancelled", summary.trips.cancelled],
+    ["Maintenance", "Open", summary.maintenance.open],
+    ["Maintenance", "Completed", summary.maintenance.completed],
+  ];
+
+  const csv = rows
+    .map((row) =>
+      row
+        .map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`)
+        .join(","),
+    )
+    .join("\n");
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  return {
+    fileName: `transitops-report-${stamp}.csv`,
+    contentType: "text/csv; charset=utf-8",
+    content: csv,
+    generatedAt: summary.generatedAt,
+  };
+};
+
 module.exports = {
   getTripReport,
   getVehicleReport,
@@ -445,4 +805,6 @@ module.exports = {
   getFuelReport,
   getExpenseReport,
   getFinancialSummary,
+  getReportSummary,
+  exportReportCsv,
 };

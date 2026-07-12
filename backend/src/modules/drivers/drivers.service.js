@@ -4,10 +4,44 @@ const { PrismaPg } = require("@prisma/adapter-pg");
 const { env } = require("../../config");
 const AppError = require("../../common/AppError");
 const { emitDomainEvent, serializeValue } = require("../../utils/socketEmitter");
+const { resolveSortBy, resolveSortOrder } = require("../../common/sort");
+const { splitFullName } = require("../auth/auth.helpers");
 
 const pool = new Pool({ connectionString: env.databaseUrl });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
+
+const DRIVER_SORT_FIELDS = new Set([
+  "employeeCode",
+  "firstName",
+  "lastName",
+  "phone",
+  "email",
+  "licenseNumber",
+  "licenseCategory",
+  "licenseExpiryDate",
+  "safetyScore",
+  "status",
+  "joiningDate",
+  "createdAt",
+  "updatedAt",
+]);
+
+const DRIVER_SORT_ALIASES = {
+  name: "firstName",
+  contactNumber: "phone",
+};
+
+const mapDriverResponse = (driver) => {
+  if (!driver) return driver;
+  const firstName = driver.firstName || "";
+  const lastName = driver.lastName || "";
+  return {
+    ...driver,
+    name: [firstName, lastName].filter(Boolean).join(" ").trim() || null,
+    contactNumber: driver.phone || null,
+  };
+};
 
 const getDrivers = async ({
   page = 1,
@@ -20,6 +54,12 @@ const getDrivers = async ({
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(100, Math.max(1, Number(limit) || 10));
   const skip = (safePage - 1) * safeLimit;
+  const safeSortBy = resolveSortBy(sortBy, {
+    allowed: DRIVER_SORT_FIELDS,
+    aliases: DRIVER_SORT_ALIASES,
+    fallback: "createdAt",
+  });
+  const safeSortOrder = resolveSortOrder(sortOrder);
 
   const where = {
     AND: [
@@ -32,11 +72,12 @@ const getDrivers = async ({
               { employeeCode: { contains: search, mode: "insensitive" } },
               { phone: { contains: search, mode: "insensitive" } },
               { licenseNumber: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
             ],
           }
         : {},
       status ? { status } : {},
-    ].filter(Boolean),
+    ].filter((clause) => Object.keys(clause).length > 0),
   };
 
   const [items, totalRecords] = await Promise.all([
@@ -44,7 +85,7 @@ const getDrivers = async ({
       where,
       skip,
       take: safeLimit,
-      orderBy: { [sortBy]: sortOrder },
+      orderBy: { [safeSortBy]: safeSortOrder },
       select: {
         id: true,
         employeeCode: true,
@@ -66,7 +107,7 @@ const getDrivers = async ({
   ]);
 
   return {
-    items,
+    items: items.map(mapDriverResponse),
     pagination: {
       page: safePage,
       limit: safeLimit,
@@ -120,15 +161,17 @@ const getDriverById = async (id) => {
     throw new AppError(404, "Driver not found");
   }
 
-  return driver;
+  return mapDriverResponse(driver);
 };
 
 const createDriver = async (data, userId, meta = {}) => {
-  const {
+  let {
     employeeCode,
     firstName,
     lastName,
+    name,
     phone,
+    contactNumber,
     email,
     licenseNumber,
     licenseCategory,
@@ -136,7 +179,37 @@ const createDriver = async (data, userId, meta = {}) => {
     joiningDate,
     address,
     safetyScore,
+    status,
   } = data;
+
+  phone = phone || contactNumber;
+  if ((!firstName || !lastName) && name) {
+    const split = splitFullName(name);
+    firstName = firstName || split.firstName;
+    lastName = lastName || split.lastName;
+  }
+
+  if (!firstName || !lastName) {
+    throw new AppError(400, "Driver name is required");
+  }
+  if (!phone) {
+    throw new AppError(400, "Phone number is required");
+  }
+  if (!licenseNumber || !licenseCategory || !licenseExpiryDate) {
+    throw new AppError(400, "License details are required");
+  }
+
+  if (!employeeCode) {
+    employeeCode = `DRV-${Date.now().toString(36).toUpperCase()}`;
+  }
+
+  if (!email) {
+    email = `${employeeCode.toLowerCase()}@drivers.transitops.local`;
+  }
+
+  if (!joiningDate) {
+    joiningDate = new Date().toISOString().slice(0, 10);
+  }
 
   const existingEmployeeCode = await prisma.driver.findUnique({
     where: { employeeCode },
@@ -146,8 +219,8 @@ const createDriver = async (data, userId, meta = {}) => {
     throw new AppError(400, "Employee code already exists");
   }
 
-  const existingPhone = await prisma.driver.findUnique({
-    where: { phone },
+  const existingPhone = await prisma.driver.findFirst({
+    where: { phone, isDeleted: false },
   });
 
   if (existingPhone) {
@@ -155,8 +228,8 @@ const createDriver = async (data, userId, meta = {}) => {
   }
 
   if (email) {
-    const existingEmail = await prisma.driver.findUnique({
-      where: { email },
+    const existingEmail = await prisma.driver.findFirst({
+      where: { email, isDeleted: false },
     });
 
     if (existingEmail) {
@@ -164,8 +237,8 @@ const createDriver = async (data, userId, meta = {}) => {
     }
   }
 
-  const existingLicense = await prisma.driver.findUnique({
-    where: { licenseNumber },
+  const existingLicense = await prisma.driver.findFirst({
+    where: { licenseNumber, isDeleted: false },
   });
 
   if (existingLicense) {
@@ -184,20 +257,25 @@ const createDriver = async (data, userId, meta = {}) => {
     throw new AppError(400, "Safety score must be between 0 and 100");
   }
 
+  const initialStatus = status || "AVAILABLE";
+  if (!["AVAILABLE", "OFF_DUTY", "SUSPENDED"].includes(initialStatus)) {
+    throw new AppError(400, "Invalid status");
+  }
+
   const driver = await prisma.driver.create({
     data: {
       employeeCode,
-      firstName,
-      lastName,
-      phone,
-      email,
-      licenseNumber,
+      firstName: String(firstName).trim(),
+      lastName: String(lastName).trim(),
+      phone: String(phone).trim(),
+      email: String(email).trim().toLowerCase(),
+      licenseNumber: String(licenseNumber).trim().toUpperCase(),
       licenseCategory,
       licenseExpiryDate: licenseExpiryDate ? new Date(licenseExpiryDate) : null,
       joiningDate: joiningDate ? new Date(joiningDate) : null,
-      address,
-      safetyScore: safetyScore || 100,
-      status: "AVAILABLE",
+      address: address || null,
+      safetyScore: safetyScore ?? 100,
+      status: initialStatus,
     },
   });
 
@@ -211,16 +289,18 @@ const createDriver = async (data, userId, meta = {}) => {
     },
   });
 
+  const mapped = mapDriverResponse(serializeValue(driver));
+
   emitDomainEvent("driver.created", {
     actorUserId: userId,
     excludeSocketId: meta.socketId,
-    data: { driver: serializeValue(driver) },
+    data: { driver: mapped },
     dashboardChanges: {
-      availableDrivers: 1,
+      availableDrivers: mapped.status === "AVAILABLE" ? 1 : 0,
     },
   });
 
-  return serializeValue(driver);
+  return mapped;
 };
 
 const updateDriver = async (id, data, userId, meta = {}) => {
@@ -232,9 +312,22 @@ const updateDriver = async (id, data, userId, meta = {}) => {
     throw new AppError(404, "Driver not found");
   }
 
-  if (data.employeeCode && data.employeeCode !== driver.employeeCode) {
+  const patch = { ...data };
+  if (patch.contactNumber && !patch.phone) {
+    patch.phone = patch.contactNumber;
+  }
+  delete patch.contactNumber;
+
+  if (patch.name && (!patch.firstName || !patch.lastName)) {
+    const split = splitFullName(patch.name);
+    patch.firstName = patch.firstName || split.firstName;
+    patch.lastName = patch.lastName || split.lastName;
+  }
+  delete patch.name;
+
+  if (patch.employeeCode && patch.employeeCode !== driver.employeeCode) {
     const existingEmployeeCode = await prisma.driver.findUnique({
-      where: { employeeCode: data.employeeCode },
+      where: { employeeCode: patch.employeeCode },
     });
 
     if (existingEmployeeCode) {
@@ -242,9 +335,9 @@ const updateDriver = async (id, data, userId, meta = {}) => {
     }
   }
 
-  if (data.phone && data.phone !== driver.phone) {
-    const existingPhone = await prisma.driver.findUnique({
-      where: { phone: data.phone },
+  if (patch.phone && patch.phone !== driver.phone) {
+    const existingPhone = await prisma.driver.findFirst({
+      where: { phone: patch.phone, isDeleted: false, NOT: { id } },
     });
 
     if (existingPhone) {
@@ -252,9 +345,9 @@ const updateDriver = async (id, data, userId, meta = {}) => {
     }
   }
 
-  if (data.email && data.email !== driver.email) {
-    const existingEmail = await prisma.driver.findUnique({
-      where: { email: data.email },
+  if (patch.email && patch.email !== driver.email) {
+    const existingEmail = await prisma.driver.findFirst({
+      where: { email: patch.email, isDeleted: false, NOT: { id } },
     });
 
     if (existingEmail) {
@@ -262,13 +355,13 @@ const updateDriver = async (id, data, userId, meta = {}) => {
     }
   }
 
-  if (data.licenseNumber && data.licenseNumber !== driver.licenseNumber) {
+  if (patch.licenseNumber && patch.licenseNumber !== driver.licenseNumber) {
     if (driver.status === "ON_TRIP") {
       throw new AppError(400, "Cannot edit license number while driver is on trip");
     }
 
-    const existingLicense = await prisma.driver.findUnique({
-      where: { licenseNumber: data.licenseNumber },
+    const existingLicense = await prisma.driver.findFirst({
+      where: { licenseNumber: patch.licenseNumber, isDeleted: false, NOT: { id } },
     });
 
     if (existingLicense) {
@@ -276,11 +369,11 @@ const updateDriver = async (id, data, userId, meta = {}) => {
     }
   }
 
-  if (data.licenseExpiryDate && new Date(data.licenseExpiryDate) <= new Date()) {
+  if (patch.licenseExpiryDate && new Date(patch.licenseExpiryDate) <= new Date()) {
     throw new AppError(400, "License expiry date must be in the future");
   }
 
-  if (data.safetyScore !== undefined && (data.safetyScore < 0 || data.safetyScore > 100)) {
+  if (patch.safetyScore !== undefined && (patch.safetyScore < 0 || patch.safetyScore > 100)) {
     throw new AppError(400, "Safety score must be between 0 and 100");
   }
 
@@ -290,9 +383,11 @@ const updateDriver = async (id, data, userId, meta = {}) => {
   const updatedDriver = await prisma.driver.update({
     where: { id },
     data: {
-      ...data,
-      licenseExpiryDate: data.licenseExpiryDate ? new Date(data.licenseExpiryDate) : undefined,
-      joiningDate: data.joiningDate ? new Date(data.joiningDate) : undefined,
+      ...patch,
+      licenseExpiryDate: patch.licenseExpiryDate
+        ? new Date(patch.licenseExpiryDate)
+        : undefined,
+      joiningDate: patch.joiningDate ? new Date(patch.joiningDate) : undefined,
     },
   });
 
@@ -307,13 +402,15 @@ const updateDriver = async (id, data, userId, meta = {}) => {
     },
   });
 
+  const mapped = mapDriverResponse(serializeValue(updatedDriver));
+
   emitDomainEvent("driver.updated", {
     actorUserId: userId,
     excludeSocketId: meta.socketId,
-    data: { driver: serializeValue(updatedDriver) },
+    data: { driver: mapped },
   });
 
-  return serializeValue(updatedDriver);
+  return mapped;
 };
 
 const changeDriverStatus = async (id, status, userId, meta = {}) => {
@@ -359,7 +456,7 @@ const changeDriverStatus = async (id, status, userId, meta = {}) => {
     },
   });
 
-  const serialized = serializeValue(updatedDriver);
+  const serialized = mapDriverResponse(serializeValue(updatedDriver));
 
   emitDomainEvent("driver.status_changed", {
     actorUserId: userId,

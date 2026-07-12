@@ -8,6 +8,40 @@ const validateMiddleware = require("../../middlewares/validate.middleware");
 const router = express.Router();
 
 router.get(
+  "/summary",
+  authMiddleware,
+  permissionMiddleware("reports.view"),
+  [
+    query("fromDate").optional().isISO8601(),
+    query("toDate").optional().isISO8601(),
+    query("dateFrom").optional().isISO8601(),
+    query("dateTo").optional().isISO8601(),
+    query("vehicleId").optional().isUUID(),
+    query("vehicleType").optional().isString(),
+    query("region").optional().isString(),
+  ],
+  validateMiddleware,
+  reportsController.getReportSummary,
+);
+
+router.get(
+  "/export/csv",
+  authMiddleware,
+  permissionMiddleware("reports.export"),
+  [
+    query("fromDate").optional().isISO8601(),
+    query("toDate").optional().isISO8601(),
+    query("dateFrom").optional().isISO8601(),
+    query("dateTo").optional().isISO8601(),
+    query("vehicleId").optional().isUUID(),
+    query("vehicleType").optional().isString(),
+    query("region").optional().isString(),
+  ],
+  validateMiddleware,
+  reportsController.exportReportCsv,
+);
+
+router.get(
   "/trips",
   authMiddleware,
   permissionMiddleware("reports.view"),

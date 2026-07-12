@@ -99,7 +99,9 @@ const getUsers = async ({
     "status",
     "lastLogin",
   ]);
-  const safeSortBy = allowedSort.has(sortBy) ? sortBy : "createdAt";
+  const sortAliases = { name: "firstName" };
+  const mappedSort = sortAliases[sortBy] || sortBy;
+  const safeSortBy = allowedSort.has(mappedSort) ? mappedSort : "createdAt";
   const safeSortOrder = sortOrder === "asc" ? "asc" : "desc";
 
   const where = {

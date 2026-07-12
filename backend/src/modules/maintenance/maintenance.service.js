@@ -5,6 +5,8 @@ const { env } = require("../../config");
 const AppError = require("../../common/AppError");
 const { emitDomainEvent, serializeValue } = require("../../utils/socketEmitter");
 
+const { resolveSortBy, resolveSortOrder } = require("../../common/sort");
+
 const pool = new Pool({ connectionString: env.databaseUrl });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
@@ -13,6 +15,28 @@ const generateMaintenanceNumber = () => {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).substring(2, 6).toUpperCase();
   return `MNT-${timestamp}-${random}`;
+};
+
+const MAINTENANCE_SORT_FIELDS = new Set([
+  "maintenanceNumber",
+  "maintenanceType",
+  "title",
+  "serviceCenter",
+  "scheduledDate",
+  "completedDate",
+  "estimatedCost",
+  "actualCost",
+  "currentOdometer",
+  "status",
+  "createdAt",
+  "updatedAt",
+]);
+
+const MAINTENANCE_SORT_ALIASES = {
+  type: "maintenanceType",
+  startDate: "scheduledDate",
+  cost: "estimatedCost",
+  finalCost: "actualCost",
 };
 
 const getMaintenances = async ({
@@ -29,6 +53,12 @@ const getMaintenances = async ({
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(100, Math.max(1, Number(limit) || 10));
   const skip = (safePage - 1) * safeLimit;
+  const safeSortBy = resolveSortBy(sortBy, {
+    allowed: MAINTENANCE_SORT_FIELDS,
+    aliases: MAINTENANCE_SORT_ALIASES,
+    fallback: "createdAt",
+  });
+  const safeSortOrder = resolveSortOrder(sortOrder);
 
   const where = {
     AND: [
@@ -44,7 +74,7 @@ const getMaintenances = async ({
             },
           }
         : {},
-    ].filter(Boolean),
+    ].filter((clause) => Object.keys(clause).length > 0),
   };
 
   const [items, totalRecords] = await Promise.all([
@@ -52,7 +82,7 @@ const getMaintenances = async ({
       where,
       skip,
       take: safeLimit,
-      orderBy: { [sortBy]: sortOrder },
+      orderBy: { [safeSortBy]: safeSortOrder },
       select: {
         id: true,
         maintenanceNumber: true,

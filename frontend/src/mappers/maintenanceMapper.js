@@ -24,6 +24,8 @@ export function fromApi(entity) {
     serviceCenter: mapped.serviceCenter || mapped.vendorName || '',
     scheduledDate: mapped.scheduledDate || mapped.startDate || null,
     estimatedCost: mapped.estimatedCost ?? mapped.cost ?? null,
+    actualCost: mapped.actualCost ?? mapped.finalCost ?? null,
+    finalCost: mapped.finalCost ?? mapped.actualCost ?? null,
     remarks: mapped.remarks ?? mapped.notes ?? null,
     // Legacy aliases used by older UI/mock code paths
     startDate: mapped.scheduledDate || mapped.startDate || null,

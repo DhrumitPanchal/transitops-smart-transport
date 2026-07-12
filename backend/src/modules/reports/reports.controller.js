@@ -64,6 +64,29 @@ const getFinancialSummary = async (req, res, next) => {
   }
 };
 
+const getReportSummary = async (req, res, next) => {
+  try {
+    const summary = await reportsService.getReportSummary(req.query);
+    return sendSuccess(res, summary, "Report summary generated successfully", 200);
+  } catch (error) {
+    return next(error);
+  }
+};
+
+const exportReportCsv = async (req, res, next) => {
+  try {
+    const file = await reportsService.exportReportCsv(req.query);
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${file.fileName}"`,
+    );
+    return res.status(200).send(file.content);
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   getTripReport,
   getVehicleReport,
@@ -72,4 +95,6 @@ module.exports = {
   getFuelReport,
   getExpenseReport,
   getFinancialSummary,
+  getReportSummary,
+  exportReportCsv,
 };

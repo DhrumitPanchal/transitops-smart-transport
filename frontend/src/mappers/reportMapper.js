@@ -22,6 +22,16 @@ export function fromApiResponse(payload) {
   return fromApiEnvelope(payload)
 }
 
-export function toApiQuery(params) {
-  return toApiParams(params)
+export function toApiQuery(params = {}) {
+  const query = toApiParams(params)
+
+  // Backend accepts both dateFrom/dateTo and fromDate/toDate.
+  if (query.dateFrom && !query.fromDate) {
+    query.fromDate = query.dateFrom
+  }
+  if (query.dateTo && !query.toDate) {
+    query.toDate = query.dateTo
+  }
+
+  return query
 }

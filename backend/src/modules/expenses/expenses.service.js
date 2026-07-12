@@ -5,9 +5,22 @@ const { env } = require("../../config");
 const AppError = require("../../common/AppError");
 const { emitDomainEvent, serializeValue } = require("../../utils/socketEmitter");
 
+const { resolveSortBy, resolveSortOrder } = require("../../common/sort");
+
 const pool = new Pool({ connectionString: env.databaseUrl });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
+
+const EXPENSE_SORT_FIELDS = new Set([
+  "category",
+  "title",
+  "amount",
+  "expenseDate",
+  "vendor",
+  "paymentMethod",
+  "createdAt",
+  "updatedAt",
+]);
 
 const getExpenses = async ({
   page = 1,
@@ -23,6 +36,11 @@ const getExpenses = async ({
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(100, Math.max(1, Number(limit) || 10));
   const skip = (safePage - 1) * safeLimit;
+  const safeSortBy = resolveSortBy(sortBy, {
+    allowed: EXPENSE_SORT_FIELDS,
+    fallback: "createdAt",
+  });
+  const safeSortOrder = resolveSortOrder(sortOrder);
 
   const where = {
     AND: [
@@ -38,7 +56,7 @@ const getExpenses = async ({
             },
           }
         : {},
-    ].filter(Boolean),
+    ].filter((clause) => Object.keys(clause).length > 0),
   };
 
   const [items, totalRecords] = await Promise.all([
@@ -46,7 +64,7 @@ const getExpenses = async ({
       where,
       skip,
       take: safeLimit,
-      orderBy: { [sortBy]: sortOrder },
+      orderBy: { [safeSortBy]: safeSortOrder },
       select: {
         id: true,
         vehicleId: true,

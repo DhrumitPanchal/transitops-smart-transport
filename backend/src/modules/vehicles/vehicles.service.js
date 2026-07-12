@@ -4,10 +4,32 @@ const { PrismaPg } = require("@prisma/adapter-pg");
 const { env } = require("../../config");
 const AppError = require("../../common/AppError");
 const { emitDomainEvent, serializeValue } = require("../../utils/socketEmitter");
+const { resolveSortBy, resolveSortOrder } = require("../../common/sort");
 
 const pool = new Pool({ connectionString: env.databaseUrl });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
+
+const VEHICLE_SORT_FIELDS = new Set([
+  "registrationNumber",
+  "vehicleName",
+  "vehicleType",
+  "capacity",
+  "currentOdometer",
+  "purchaseCost",
+  "manufactureYear",
+  "region",
+  "status",
+  "createdAt",
+  "updatedAt",
+]);
+
+const VEHICLE_SORT_ALIASES = {
+  name: "vehicleName",
+  type: "vehicleType",
+  odometer: "currentOdometer",
+  acquisitionCost: "purchaseCost",
+};
 
 const getVehicles = async ({
   page = 1,
@@ -21,6 +43,12 @@ const getVehicles = async ({
   const safePage = Math.max(1, Number(page) || 1);
   const safeLimit = Math.min(100, Math.max(1, Number(limit) || 10));
   const skip = (safePage - 1) * safeLimit;
+  const safeSortBy = resolveSortBy(sortBy, {
+    allowed: VEHICLE_SORT_FIELDS,
+    aliases: VEHICLE_SORT_ALIASES,
+    fallback: "createdAt",
+  });
+  const safeSortOrder = resolveSortOrder(sortOrder);
 
   const where = {
     AND: [
@@ -35,7 +63,7 @@ const getVehicles = async ({
         : {},
       status ? { status } : {},
       type ? { vehicleType: type } : {},
-    ].filter(Boolean),
+    ].filter((clause) => Object.keys(clause).length > 0),
   };
 
   const [items, totalRecords] = await Promise.all([
@@ -43,7 +71,7 @@ const getVehicles = async ({
       where,
       skip,
       take: safeLimit,
-      orderBy: { [sortBy]: sortOrder },
+      orderBy: { [safeSortBy]: safeSortOrder },
       select: {
         id: true,
         registrationNumber: true,
