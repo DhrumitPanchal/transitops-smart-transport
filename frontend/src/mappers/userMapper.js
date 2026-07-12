@@ -102,6 +102,37 @@ export function toApiRequest(payload) {
 }
 
 /**
+ * Map create/update/approve payloads for the backend user APIs.
+ * Frontend forms use `name` + role code; API uses first/last name + role code.
+ */
+export function toApiMutation(payload = {}) {
+  if (payload == null || typeof payload !== 'object') return payload
+
+  const body = { ...toApiBody(payload) }
+
+  if (body.name != null && (body.firstName == null || body.lastName == null)) {
+    const trimmed = String(body.name).trim().replace(/\s+/g, ' ')
+    const parts = trimmed.split(' ').filter(Boolean)
+    if (parts.length === 1) {
+      body.firstName = body.firstName ?? parts[0]
+      body.lastName = body.lastName ?? parts[0]
+    } else if (parts.length > 1) {
+      body.firstName = body.firstName ?? parts[0]
+      body.lastName = body.lastName ?? parts.slice(1).join(' ')
+    }
+  }
+
+  delete body.confirmPassword
+  delete body.passwordHash
+
+  if (!body.password) {
+    delete body.password
+  }
+
+  return body
+}
+
+/**
  * Map list filters to backend GET /users query.
  * Backend accepts: page, limit, roleId, status (+ search/sortBy/sortOrder in service).
  */
@@ -117,11 +148,6 @@ export function toApiQuery(params = {}) {
     delete query.role
   } else if (query.role) {
     delete query.role
-  }
-
-  // Backend status enum: ACTIVE | INACTIVE only
-  if (query.status === 'PENDING') {
-    delete query.status
   }
 
   return query

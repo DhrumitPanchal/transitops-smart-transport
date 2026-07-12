@@ -5,7 +5,7 @@ export const VALIDATION_MESSAGES = {
   EMAIL_INVALID: 'Enter a valid email address',
   EMAIL_REQUIRED: 'Email is required',
   PASSWORD_REQUIRED: 'Password is required',
-  PASSWORD_MIN: 'Password must be at least 6 characters',
+  PASSWORD_MIN: 'Password must be at least 8 characters',
   PASSWORD_CONFIRM_REQUIRED: 'Confirm password is required',
   PASSWORD_MISMATCH: 'Passwords do not match',
   NAME_REQUIRED: 'Name is required',

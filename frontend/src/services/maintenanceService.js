@@ -4,7 +4,6 @@ import { isMockMode } from './serviceMode'
 import { maintenanceMockRepository } from '../mocks/repositories/maintenanceMockRepository'
 import {
   fromApiDetail,
-  fromApiLifecycle,
   fromApiList,
   toApiQuery,
   toApiRequest,

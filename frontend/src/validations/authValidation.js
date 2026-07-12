@@ -41,7 +41,7 @@ export const registerSchema = z
       z
         .string()
         .min(1, VALIDATION_MESSAGES.PASSWORD_REQUIRED)
-        .min(6, VALIDATION_MESSAGES.PASSWORD_MIN)
+        .min(8, VALIDATION_MESSAGES.PASSWORD_MIN)
         .max(100, 'Password must be at most 100 characters'),
     ),
     confirmPassword: z.preprocess(

@@ -1,21 +1,13 @@
 import apiClient from '../api/apiClient'
 import { ENDPOINTS } from '../api/endpoints'
-import { ApiError } from '../api/apiError'
 import { isMockMode } from './serviceMode'
 import { userMockRepository } from '../mocks/repositories/userMockRepository'
 import {
   fromApiDetail,
   fromApiList,
+  toApiMutation,
   toApiQuery,
 } from '../mappers/userMapper'
-
-function notAvailableOnApi(action) {
-  throw new ApiError({
-    status: 501,
-    code: 'NOT_IMPLEMENTED',
-    message: `${action} is not available on the current backend API.`,
-  })
-}
 
 export async function list(params = {}) {
   if (isMockMode()) {
@@ -37,34 +29,49 @@ export async function getById(id) {
   return fromApiDetail(data)
 }
 
-/** Mock only — backend has no POST /users. */
 export async function create(payload) {
   if (isMockMode()) {
     return userMockRepository.create(payload)
   }
-  return notAvailableOnApi('Create user')
+
+  const { data } = await apiClient.post(
+    ENDPOINTS.USERS.BASE,
+    toApiMutation(payload),
+  )
+  return fromApiDetail(data)
 }
 
-/** Mock only — backend has no PUT /users/:id. */
 export async function update(id, payload) {
   if (isMockMode()) {
     return userMockRepository.update(id, payload)
   }
-  return notAvailableOnApi('Update user')
+
+  const { data } = await apiClient.put(
+    ENDPOINTS.USERS.BY_ID(id),
+    toApiMutation(payload),
+  )
+  return fromApiDetail(data)
 }
 
-/** Mock only — backend has no PATCH /users/:id/status. */
 export async function changeStatus(id, status) {
   if (isMockMode()) {
     return userMockRepository.changeStatus(id, status)
   }
-  return notAvailableOnApi('Change user status')
+
+  const { data } = await apiClient.patch(ENDPOINTS.USERS.STATUS(id), {
+    status,
+  })
+  return fromApiDetail(data)
 }
 
-/** Mock only — backend has no PATCH /users/:id/approve. */
 export async function approve(id, payload) {
   if (isMockMode()) {
     return userMockRepository.approve(id, payload)
   }
-  return notAvailableOnApi('Approve user')
+
+  const { data } = await apiClient.patch(
+    ENDPOINTS.USERS.APPROVE(id),
+    toApiMutation(payload),
+  )
+  return fromApiDetail(data)
 }

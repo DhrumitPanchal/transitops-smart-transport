@@ -90,12 +90,12 @@ export const userMockRepository = {
       })
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       throw new ApiError({
         status: 400,
         code: 'PASSWORD_REQUIRED',
-        message: 'Password must be at least 6 characters',
-        fieldErrors: { password: 'Password must be at least 6 characters' },
+        message: 'Password must be at least 8 characters',
+        fieldErrors: { password: 'Password must be at least 8 characters' },
       })
     }
 

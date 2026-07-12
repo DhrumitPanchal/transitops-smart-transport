@@ -4,7 +4,6 @@ import { isMockMode } from './serviceMode'
 import { tripMockRepository } from '../mocks/repositories/tripMockRepository'
 import {
   fromApiDetail,
-  fromApiLifecycle,
   fromApiList,
   toApiQuery,
   toApiRequest,

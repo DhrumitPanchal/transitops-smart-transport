@@ -1,12 +1,14 @@
 const AppError = require("../common/AppError");
+const { ROLES } = require("../constants");
 
 const permissionMiddleware = (requiredPermission) => {
   return (req, res, next) => {
     try {
       const userPermissions = req.user?.permissions || [];
+      const roleCode = req.user?.role;
 
       if (
-        req.user?.role === "SUPER_ADMIN" ||
+        roleCode === ROLES.SUPER_ADMIN ||
         userPermissions.includes(requiredPermission)
       ) {
         return next();

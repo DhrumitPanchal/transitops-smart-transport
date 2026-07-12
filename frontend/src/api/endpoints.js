@@ -1,5 +1,6 @@
 export const ENDPOINTS = {
   AUTH: {
+    REGISTER: '/auth/register',
     LOGIN: '/auth/login',
     LOGOUT: '/auth/logout',
     ME: '/auth/me',
@@ -49,6 +50,8 @@ export const ENDPOINTS = {
   USERS: {
     BASE: '/users',
     BY_ID: (id) => `/users/${id}`,
+    STATUS: (id) => `/users/${id}/status`,
+    APPROVE: (id) => `/users/${id}/approve`,
   },
   ROLES: {
     BASE: '/roles',

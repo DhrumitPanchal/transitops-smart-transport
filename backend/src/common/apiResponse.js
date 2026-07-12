@@ -11,12 +11,23 @@ const sendError = (
   message = "Something went wrong",
   statusCode = 500,
   details = null,
+  extras = {},
 ) => {
-  return res.status(statusCode).json({
+  const payload = {
     success: false,
     message,
     details,
-  });
+  };
+
+  if (extras.code) {
+    payload.code = extras.code;
+  }
+
+  if (extras.fieldErrors) {
+    payload.fieldErrors = extras.fieldErrors;
+  }
+
+  return res.status(statusCode).json(payload);
 };
 
 module.exports = {

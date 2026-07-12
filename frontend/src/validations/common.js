@@ -39,7 +39,7 @@ export const passwordField = z.preprocess(
   z
     .string()
     .min(1, VALIDATION_MESSAGES.PASSWORD_REQUIRED)
-    .min(6, VALIDATION_MESSAGES.PASSWORD_MIN),
+    .min(8, VALIDATION_MESSAGES.PASSWORD_MIN),
 )
 
 export function trimmedText({

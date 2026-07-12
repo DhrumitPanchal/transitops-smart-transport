@@ -55,11 +55,14 @@ export function toApi(entity) {
     remarks,
     notes,
     vehicleId,
-    status,
+    status: _status,
     // strip UI-only / legacy fields
-    expectedEndDate,
+    expectedEndDate: _expectedEndDate,
     ...rest
   } = entity
+
+  void _status
+  void _expectedEndDate
 
   const payload = {
     ...rest,

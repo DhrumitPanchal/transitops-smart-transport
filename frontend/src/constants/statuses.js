@@ -94,7 +94,5 @@ export const USER_STATUS_OPTIONS = Object.values(USER_STATUS).map((value) => ({
   label: STATUS_LABELS[value],
 }))
 
-/** Backend UserStatus is ACTIVE | INACTIVE only. */
-export const USER_STATUS_OPTIONS_API = USER_STATUS_OPTIONS.filter(
-  (option) => option.value !== USER_STATUS.PENDING,
-)
+/** Backend UserStatus: PENDING | ACTIVE | INACTIVE */
+export const USER_STATUS_OPTIONS_API = USER_STATUS_OPTIONS

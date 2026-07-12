@@ -1,6 +1,23 @@
 const { sendSuccess } = require("../../common/apiResponse");
 const authService = require("./auth.service");
 
+const register = async (req, res, next) => {
+  try {
+    const result = await authService.register(req.body);
+
+    res.cookie("transitops_token", result.token, result.cookieOptions);
+
+    return sendSuccess(
+      res,
+      { user: result.user },
+      "Registration successful. Waiting for Super Admin approval.",
+      201,
+    );
+  } catch (error) {
+    return next(error);
+  }
+};
+
 const login = async (req, res, next) => {
   try {
     const result = await authService.login(req.body);
@@ -28,6 +45,7 @@ const getCurrentUser = async (req, res, next) => {
 };
 
 module.exports = {
+  register,
   login,
   logout,
   getCurrentUser,
