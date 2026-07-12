@@ -77,7 +77,7 @@ export function syncDriverAvailableCache(queryClient, driver) {
       }
 
       return {
-        data: [driver],
+        data: [{ ...driver }],
         pagination: {
           page: 1,
           pageSize: 10,
@@ -87,15 +87,29 @@ export function syncDriverAvailableCache(queryClient, driver) {
       }
     }
 
-    return updatePaginatedQueryData(oldData, (items) => {
-      const withoutDriver = removeItemById(items, driver.id)
+    const currentItems = Array.isArray(oldData.data) ? oldData.data : []
+    const withoutDriver = removeItemById(currentItems, driver.id)
+    const pageSize = Math.max(
+      Number(oldData.pagination?.pageSize) || 10,
+      withoutDriver.length,
+    )
 
-      if (isDriverDispatchAvailable(driver)) {
-        return upsertItemById(withoutDriver, driver)
-      }
+    let nextItems = withoutDriver
+    if (isDriverDispatchAvailable(driver)) {
+      nextItems = upsertItemById(withoutDriver, driver).slice(0, pageSize)
+    }
 
-      return withoutDriver
-    })
+    return {
+      ...oldData,
+      data: nextItems,
+      pagination: {
+        ...oldData.pagination,
+        page: 1,
+        pageSize,
+        totalItems: nextItems.length,
+        totalPages: nextItems.length === 0 ? 0 : 1,
+      },
+    }
   })
 }
 

@@ -1,4 +1,5 @@
 import { applyOptionalDashboardChanges } from '../features/dashboard/dashboardQueryCache'
+import { fromApiEnvelope } from '../mappers/apiEnvelope'
 
 const appliedDeltaEventIds = new Set()
 const MAX_DELTA_IDS = 400
@@ -24,12 +25,13 @@ export function registerDashboardRealtimeHandlers(socket, queryClient) {
 
   const onAny = (_eventName, payload) => {
     if (!payload || typeof payload !== 'object') return
+    const normalized = fromApiEnvelope(payload)
     const hasChanges = Boolean(
-      payload.dashboardChanges || payload.data?.dashboardChanges,
+      normalized.dashboardChanges || normalized.data?.dashboardChanges,
     )
     if (!hasChanges) return
-    if (!rememberDeltaEvent(payload.eventId)) return
-    applyOptionalDashboardChanges(queryClient, payload)
+    if (!rememberDeltaEvent(normalized.eventId)) return
+    applyOptionalDashboardChanges(queryClient, normalized)
   }
 
   if (typeof socket.onAny === 'function') {

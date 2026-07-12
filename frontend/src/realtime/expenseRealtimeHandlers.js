@@ -3,19 +3,10 @@ import {
   applyExpenseCacheUpdate,
   unwrapExpenseResponse,
 } from '../features/expenses/expenseQueryCache'
-import { shouldProcessRealtimeEvent } from './realtimeEventGuard'
+import { createGuardedHandler } from './createGuardedHandler'
 import { SOCKET_EVENTS } from './socketEvents'
 
 export { doesExpenseMatchFilters } from '../features/expenses/doesExpenseMatchFilters'
-
-function createGuardedHandler(queryClient, handler) {
-  return (payload) => {
-    if (!shouldProcessRealtimeEvent(payload?.eventId)) {
-      return
-    }
-    handler(queryClient, payload)
-  }
-}
 
 function extractRecord(payload) {
   const data = payload?.data

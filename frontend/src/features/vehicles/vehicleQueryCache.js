@@ -10,12 +10,6 @@ import {
 } from '../../realtime/realtimeCache'
 import { doesVehicleMatchFilters } from './doesVehicleMatchFilters'
 
-const UNAVAILABLE_VEHICLE_STATUSES = new Set([
-  VEHICLE_STATUS.ON_TRIP,
-  VEHICLE_STATUS.IN_SHOP,
-  VEHICLE_STATUS.RETIRED,
-])
-
 const COMPATIBLE_CREATE_SORTS = new Set([
   'registrationNumber',
   'vehicleName',
@@ -60,7 +54,7 @@ export function syncVehicleAvailableCache(queryClient, vehicle) {
       }
 
       return {
-        data: [vehicle],
+        data: [{ ...vehicle }],
         pagination: {
           page: 1,
           pageSize: 10,
@@ -70,19 +64,29 @@ export function syncVehicleAvailableCache(queryClient, vehicle) {
       }
     }
 
-    return updatePaginatedQueryData(oldData, (items) => {
-      const withoutVehicle = removeItemById(items, vehicle.id)
+    const currentItems = Array.isArray(oldData.data) ? oldData.data : []
+    const withoutVehicle = removeItemById(currentItems, vehicle.id)
+    const pageSize = Math.max(
+      Number(oldData.pagination?.pageSize) || 10,
+      withoutVehicle.length,
+    )
 
-      if (vehicle.status === VEHICLE_STATUS.AVAILABLE) {
-        return upsertItemById(withoutVehicle, vehicle)
-      }
+    let nextItems = withoutVehicle
+    if (vehicle.status === VEHICLE_STATUS.AVAILABLE) {
+      nextItems = upsertItemById(withoutVehicle, vehicle).slice(0, pageSize)
+    }
 
-      if (UNAVAILABLE_VEHICLE_STATUSES.has(vehicle.status)) {
-        return withoutVehicle
-      }
-
-      return withoutVehicle
-    })
+    return {
+      ...oldData,
+      data: nextItems,
+      pagination: {
+        ...oldData.pagination,
+        page: 1,
+        pageSize,
+        totalItems: nextItems.length,
+        totalPages: nextItems.length === 0 ? 0 : 1,
+      },
+    }
   })
 }
 

@@ -8,6 +8,7 @@ import {
 } from '../../realtime/realtimeCache'
 import { applyVehicleCacheUpdate } from '../vehicles/vehicleQueryCache'
 import { applyDriverCacheUpdate } from '../drivers/driverQueryCache'
+import { applyFuelLogCacheUpdate } from '../fuel/fuelQueryCache'
 import { doesTripMatchFilters } from './doesTripMatchFilters'
 
 const COMPATIBLE_CREATE_SORTS = new Set([
@@ -209,6 +210,7 @@ export function applyTripLifecycleToCache(
     trip,
     vehicle = null,
     driver = null,
+    fuelLog = null,
     markReports = false,
   } = {},
 ) {
@@ -221,6 +223,10 @@ export function applyTripLifecycleToCache(
 
   applyLinkedVehicle(queryClient, vehicle)
   applyLinkedDriver(queryClient, driver)
+
+  if (fuelLog?.id) {
+    applyFuelLogCacheUpdate(queryClient, fuelLog, { isCreate: true })
+  }
 }
 
 export function applyTripCreateToCache(queryClient, trip) {
@@ -244,11 +250,13 @@ export function applyTripCompleteToCache(queryClient, payload) {
   const trip = payload?.trip || payload?.data?.trip || payload
   const vehicle = payload?.vehicle || payload?.data?.vehicle || trip?.vehicle
   const driver = payload?.driver || payload?.data?.driver || trip?.driver
+  const fuelLog = payload?.fuelLog || payload?.data?.fuelLog || null
 
   applyTripLifecycleToCache(queryClient, {
     trip,
     vehicle,
     driver,
+    fuelLog,
     markReports: true,
   })
 }

@@ -1,18 +1,8 @@
 import { applyDriverCacheUpdate } from '../features/drivers/driverQueryCache'
-import { shouldProcessRealtimeEvent } from './realtimeEventGuard'
+import { createGuardedHandler } from './createGuardedHandler'
 import { SOCKET_EVENTS } from './socketEvents'
 
 export { doesDriverMatchFilters } from '../features/drivers/doesDriverMatchFilters'
-
-function createGuardedHandler(queryClient, handler) {
-  return (payload) => {
-    if (!shouldProcessRealtimeEvent(payload?.eventId)) {
-      return
-    }
-
-    handler(queryClient, payload)
-  }
-}
 
 export function registerDriverRealtimeHandlers(socket, queryClient) {
   if (!socket || !queryClient) return () => {}

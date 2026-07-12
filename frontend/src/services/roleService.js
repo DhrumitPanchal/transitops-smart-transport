@@ -2,14 +2,22 @@ import apiClient from '../api/apiClient'
 import { ENDPOINTS } from '../api/endpoints'
 import { isMockMode } from './serviceMode'
 import { roleMockRepository } from '../mocks/repositories/roleMockRepository'
+import {
+  fromApiDetail,
+  fromApiList,
+  toApiQuery,
+  toApiRequest,
+} from '../mappers/roleMapper'
 
 export async function list(params = {}) {
   if (isMockMode()) {
     return roleMockRepository.list(params)
   }
 
-  const { data } = await apiClient.get(ENDPOINTS.ROLES.BASE, { params })
-  return data
+  const { data } = await apiClient.get(ENDPOINTS.ROLES.BASE, {
+    params: toApiQuery(params),
+  })
+  return fromApiList(data)
 }
 
 export async function getById(id) {
@@ -18,7 +26,7 @@ export async function getById(id) {
   }
 
   const { data } = await apiClient.get(ENDPOINTS.ROLES.BY_ID(id))
-  return data
+  return fromApiDetail(data)
 }
 
 export async function updatePermissions(id, permissions) {
@@ -26,8 +34,9 @@ export async function updatePermissions(id, permissions) {
     return roleMockRepository.updatePermissions(id, permissions)
   }
 
-  const { data } = await apiClient.put(ENDPOINTS.ROLES.PERMISSIONS(id), {
-    permissions,
-  })
-  return data
+  const { data } = await apiClient.put(
+    ENDPOINTS.ROLES.PERMISSIONS(id),
+    toApiRequest({ permissions }),
+  )
+  return fromApiDetail(data)
 }

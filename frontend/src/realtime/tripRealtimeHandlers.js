@@ -1,17 +1,8 @@
 import { applyTripCacheUpdate, applyTripLifecycleToCache } from '../features/trips/tripQueryCache'
-import { shouldProcessRealtimeEvent } from './realtimeEventGuard'
+import { createGuardedHandler } from './createGuardedHandler'
 import { SOCKET_EVENTS } from './socketEvents'
 
 export { doesTripMatchFilters } from '../features/trips/doesTripMatchFilters'
-
-function createGuardedHandler(queryClient, handler) {
-  return (payload) => {
-    if (!shouldProcessRealtimeEvent(payload?.eventId)) {
-      return
-    }
-    handler(queryClient, payload)
-  }
-}
 
 function extractLifecyclePayload(payload) {
   const data = payload?.data || {}
@@ -50,12 +41,13 @@ export function registerTripRealtimeHandlers(socket, queryClient) {
   })
 
   const onCompleted = createGuardedHandler(queryClient, (client, payload) => {
-    const { trip, vehicle, driver } = extractLifecyclePayload(payload)
+    const { trip, vehicle, driver, fuelLog } = extractLifecyclePayload(payload)
     if (!trip) return
     applyTripLifecycleToCache(client, {
       trip,
       vehicle,
       driver,
+      fuelLog,
       markReports: true,
     })
   })

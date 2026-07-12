@@ -1,18 +1,8 @@
 import { applyVehicleCacheUpdate } from '../features/vehicles/vehicleQueryCache'
-import { shouldProcessRealtimeEvent } from './realtimeEventGuard'
+import { createGuardedHandler } from './createGuardedHandler'
 import { SOCKET_EVENTS } from './socketEvents'
 
 export { doesVehicleMatchFilters } from '../features/vehicles/doesVehicleMatchFilters'
-
-function createGuardedHandler(queryClient, handler) {
-  return (payload) => {
-    if (!shouldProcessRealtimeEvent(payload?.eventId)) {
-      return
-    }
-
-    handler(queryClient, payload)
-  }
-}
 
 export function registerVehicleRealtimeHandlers(socket, queryClient) {
   if (!socket || !queryClient) return () => {}

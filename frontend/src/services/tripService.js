@@ -2,14 +2,23 @@ import apiClient from '../api/apiClient'
 import { ENDPOINTS } from '../api/endpoints'
 import { isMockMode } from './serviceMode'
 import { tripMockRepository } from '../mocks/repositories/tripMockRepository'
+import {
+  fromApiDetail,
+  fromApiLifecycle,
+  fromApiList,
+  toApiQuery,
+  toApiRequest,
+} from '../mappers/tripMapper'
 
 export async function list(params = {}) {
   if (isMockMode()) {
     return tripMockRepository.list(params)
   }
 
-  const { data } = await apiClient.get(ENDPOINTS.TRIPS.BASE, { params })
-  return data
+  const { data } = await apiClient.get(ENDPOINTS.TRIPS.BASE, {
+    params: toApiQuery(params),
+  })
+  return fromApiList(data)
 }
 
 export async function getById(id) {
@@ -18,7 +27,7 @@ export async function getById(id) {
   }
 
   const { data } = await apiClient.get(ENDPOINTS.TRIPS.BY_ID(id))
-  return data
+  return fromApiDetail(data)
 }
 
 export async function create(payload) {
@@ -26,8 +35,11 @@ export async function create(payload) {
     return tripMockRepository.create(payload)
   }
 
-  const { data } = await apiClient.post(ENDPOINTS.TRIPS.BASE, payload)
-  return data
+  const { data } = await apiClient.post(
+    ENDPOINTS.TRIPS.BASE,
+    toApiRequest(payload),
+  )
+  return fromApiDetail(data)
 }
 
 export async function updateDraft(id, payload) {
@@ -35,8 +47,11 @@ export async function updateDraft(id, payload) {
     return tripMockRepository.updateDraft(id, payload)
   }
 
-  const { data } = await apiClient.put(ENDPOINTS.TRIPS.BY_ID(id), payload)
-  return data
+  const { data } = await apiClient.put(
+    ENDPOINTS.TRIPS.BY_ID(id),
+    toApiRequest(payload),
+  )
+  return fromApiDetail(data)
 }
 
 export async function dispatch(id) {
@@ -45,7 +60,7 @@ export async function dispatch(id) {
   }
 
   const { data } = await apiClient.post(ENDPOINTS.TRIPS.DISPATCH(id))
-  return data
+  return fromApiLifecycle(data)
 }
 
 export async function complete(id, payload) {
@@ -53,8 +68,11 @@ export async function complete(id, payload) {
     return tripMockRepository.complete(id, payload)
   }
 
-  const { data } = await apiClient.post(ENDPOINTS.TRIPS.COMPLETE(id), payload)
-  return data
+  const { data } = await apiClient.post(
+    ENDPOINTS.TRIPS.COMPLETE(id),
+    toApiRequest(payload),
+  )
+  return fromApiLifecycle(data)
 }
 
 export async function cancel(id, payload) {
@@ -62,6 +80,9 @@ export async function cancel(id, payload) {
     return tripMockRepository.cancel(id, payload)
   }
 
-  const { data } = await apiClient.post(ENDPOINTS.TRIPS.CANCEL(id), payload)
-  return data
+  const { data } = await apiClient.post(
+    ENDPOINTS.TRIPS.CANCEL(id),
+    toApiRequest(payload),
+  )
+  return fromApiLifecycle(data)
 }

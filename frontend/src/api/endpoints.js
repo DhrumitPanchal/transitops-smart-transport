@@ -33,8 +33,8 @@ export const ENDPOINTS = {
     CANCEL: (id) => `/maintenance/${id}/cancel`,
   },
   FUEL: {
-    BASE: '/fuel',
-    BY_ID: (id) => `/fuel/${id}`,
+    BASE: '/fuel-logs',
+    BY_ID: (id) => `/fuel-logs/${id}`,
   },
   EXPENSES: {
     BASE: '/expenses',
@@ -42,7 +42,7 @@ export const ENDPOINTS = {
   },
   REPORTS: {
     SUMMARY: '/reports/summary',
-    EXPORT: '/reports/export',
+    EXPORT: '/reports/export/csv',
   },
   USERS: {
     BASE: '/users',

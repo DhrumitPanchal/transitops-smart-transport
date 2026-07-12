@@ -9,7 +9,7 @@ import {
   shouldConnectRealtime,
 } from './socketClient'
 import { registerRealtimeHandlers } from './registerRealtimeHandlers'
-import { REALTIME_STATUS } from './socketEvents'
+import { REALTIME_STATUS, SOCKET_CONNECTION_EVENTS } from './socketEvents'
 import { RealtimeContext } from './realtimeContext'
 
 function resolveIdleStatus() {
@@ -74,9 +74,9 @@ export function RealtimeProvider({ children }) {
       }
     }
 
-    socket.on('connect', handleConnect)
-    socket.on('disconnect', handleDisconnect)
-    socket.on('connect_error', handleConnectError)
+    socket.on(SOCKET_CONNECTION_EVENTS.CONNECT, handleConnect)
+    socket.on(SOCKET_CONNECTION_EVENTS.DISCONNECT, handleDisconnect)
+    socket.on(SOCKET_CONNECTION_EVENTS.CONNECT_ERROR, handleConnectError)
 
     queueMicrotask(() => {
       if (cancelled) return
@@ -90,9 +90,9 @@ export function RealtimeProvider({ children }) {
     return () => {
       cancelled = true
       unregisterHandlers()
-      socket.off('connect', handleConnect)
-      socket.off('disconnect', handleDisconnect)
-      socket.off('connect_error', handleConnectError)
+      socket.off(SOCKET_CONNECTION_EVENTS.CONNECT, handleConnect)
+      socket.off(SOCKET_CONNECTION_EVENTS.DISCONNECT, handleDisconnect)
+      socket.off(SOCKET_CONNECTION_EVENTS.CONNECT_ERROR, handleConnectError)
       disconnectSocket()
     }
   }, [canConnect, queryClient])

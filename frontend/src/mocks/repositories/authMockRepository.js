@@ -5,6 +5,7 @@ import { normalizeEmail, singleResponse } from '../mockHelpers'
 import { USER_STATUS } from '../../constants/statuses'
 import { ROLE_LABELS, ROLE_LANDING_ROUTES } from '../../constants/roles'
 
+/** In-memory credentials only — never attached to public user payloads. */
 const AUTH_CREDENTIALS = [
   {
     email: 'admin@transitops.com',
@@ -36,6 +37,19 @@ function findCredential(email, password) {
 }
 
 export const authMockRepository = {
+  registerCredential(email, password) {
+    const normalized = normalizeEmail(email)
+    const existing = AUTH_CREDENTIALS.find((item) => item.email === normalized)
+    if (existing) {
+      existing.password = String(password)
+      return
+    }
+    AUTH_CREDENTIALS.push({
+      email: normalized,
+      password: String(password),
+    })
+  },
+
   async login({ email, password }) {
     await mockDelay()
     const db = getDb()
@@ -88,13 +102,26 @@ export const authMockRepository = {
       })
     }
 
+    if (user.status === USER_STATUS.INACTIVE) {
+      this.clearSession()
+      throw new ApiError({
+        status: 403,
+        code: 'USER_INACTIVE',
+        message: 'This account is inactive',
+      })
+    }
+
     return singleResponse(toPublicUser(user))
   },
 
   getDemoAccounts() {
     const db = getDb()
 
-    return AUTH_CREDENTIALS.map((credential) => {
+    return AUTH_CREDENTIALS.filter((credential) =>
+      db.users.some(
+        (item) => normalizeEmail(item.email) === credential.email,
+      ),
+    ).map((credential) => {
       const user = db.users.find(
         (item) => normalizeEmail(item.email) === credential.email,
       )
@@ -119,6 +146,15 @@ export const authMockRepository = {
         status: 401,
         code: 'UNAUTHORIZED',
         message: 'Unauthorized',
+      })
+    }
+
+    if (user.status === USER_STATUS.INACTIVE) {
+      this.clearSession()
+      throw new ApiError({
+        status: 403,
+        code: 'USER_INACTIVE',
+        message: 'This account is inactive',
       })
     }
 

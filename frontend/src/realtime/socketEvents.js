@@ -41,3 +41,9 @@ export const REALTIME_STATUS = {
   DISCONNECTED: 'disconnected',
   ERROR: 'error',
 }
+
+export const SOCKET_CONNECTION_EVENTS = {
+  CONNECT: 'connect',
+  DISCONNECT: 'disconnect',
+  CONNECT_ERROR: 'connect_error',
+}

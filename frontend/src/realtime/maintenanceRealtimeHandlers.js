@@ -1,17 +1,8 @@
 import { applyMaintenanceLifecycleToCache } from '../features/maintenance/maintenanceQueryCache'
-import { shouldProcessRealtimeEvent } from './realtimeEventGuard'
+import { createGuardedHandler } from './createGuardedHandler'
 import { SOCKET_EVENTS } from './socketEvents'
 
 export { doesMaintenanceMatchFilters } from '../features/maintenance/doesMaintenanceMatchFilters'
-
-function createGuardedHandler(queryClient, handler) {
-  return (payload) => {
-    if (!shouldProcessRealtimeEvent(payload?.eventId)) {
-      return
-    }
-    handler(queryClient, payload)
-  }
-}
 
 function extractPayload(payload) {
   const data = payload?.data || {}

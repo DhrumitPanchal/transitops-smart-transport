@@ -2,14 +2,21 @@ import apiClient from '../api/apiClient'
 import { ENDPOINTS } from '../api/endpoints'
 import { isMockMode } from './serviceMode'
 import { authMockRepository } from '../mocks/repositories/authMockRepository'
+import {
+  fromApiSession,
+  toApiRequest,
+} from '../mappers/authMapper'
 
 export async function login(credentials) {
   if (isMockMode()) {
     return authMockRepository.login(credentials)
   }
 
-  const { data } = await apiClient.post(ENDPOINTS.AUTH.LOGIN, credentials)
-  return data
+  const { data } = await apiClient.post(
+    ENDPOINTS.AUTH.LOGIN,
+    toApiRequest(credentials),
+  )
+  return fromApiSession(data)
 }
 
 export async function logout() {
@@ -27,7 +34,7 @@ export async function getCurrentUser() {
   }
 
   const { data } = await apiClient.get(ENDPOINTS.AUTH.ME)
-  return data
+  return fromApiSession(data)
 }
 
 export function getDemoAccounts() {

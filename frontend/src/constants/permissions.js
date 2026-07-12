@@ -51,6 +51,26 @@ export const PERMISSIONS = {
 
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS)
 
+/** Only Super Admin may hold these. Never grant to other roles. */
+export const SUPER_ADMIN_ONLY_PERMISSIONS = [
+  PERMISSIONS.USERS_VIEW,
+  PERMISSIONS.USERS_CREATE,
+  PERMISSIONS.USERS_EDIT,
+  PERMISSIONS.USERS_CHANGE_STATUS,
+  PERMISSIONS.ROLES_VIEW,
+  PERMISSIONS.ROLES_EDIT_PERMISSIONS,
+]
+
+export function isSuperAdminOnlyPermission(permission) {
+  return SUPER_ADMIN_ONLY_PERMISSIONS.includes(permission)
+}
+
+export function stripSuperAdminOnlyPermissions(permissions = []) {
+  return permissions.filter(
+    (permission) => !isSuperAdminOnlyPermission(permission),
+  )
+}
+
 export const rolePermissions = {
   [ROLES.SUPER_ADMIN]: [...ALL_PERMISSIONS],
 

@@ -5,6 +5,8 @@ import { registerMaintenanceRealtimeHandlers } from './maintenanceRealtimeHandle
 import { registerFuelRealtimeHandlers } from './fuelRealtimeHandlers'
 import { registerExpenseRealtimeHandlers } from './expenseRealtimeHandlers'
 import { registerDashboardRealtimeHandlers } from './dashboardRealtimeHandlers'
+import { registerUserRealtimeHandlers } from './userRealtimeHandlers'
+import { registerRoleRealtimeHandlers } from './roleRealtimeHandlers'
 
 export { doesVehicleMatchFilters } from './vehicleRealtimeHandlers'
 export { doesDriverMatchFilters } from './driverRealtimeHandlers'
@@ -12,6 +14,7 @@ export { doesTripMatchFilters } from './tripRealtimeHandlers'
 export { doesMaintenanceMatchFilters } from './maintenanceRealtimeHandlers'
 export { doesFuelLogMatchFilters } from './fuelRealtimeHandlers'
 export { doesExpenseMatchFilters } from './expenseRealtimeHandlers'
+export { doesUserMatchFilters } from './userRealtimeHandlers'
 
 /**
  * Registers all central Socket.IO cache handlers once per connection.
@@ -30,6 +33,8 @@ export function registerRealtimeHandlers(socket, queryClient) {
     registerFuelRealtimeHandlers(socket, queryClient),
     registerExpenseRealtimeHandlers(socket, queryClient),
     registerDashboardRealtimeHandlers(socket, queryClient),
+    registerUserRealtimeHandlers(socket, queryClient),
+    registerRoleRealtimeHandlers(socket, queryClient),
   ]
 
   return () => {

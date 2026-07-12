@@ -3,19 +3,10 @@ import {
   applyFuelLogCacheUpdate,
   unwrapFuelLogResponse,
 } from '../features/fuel/fuelQueryCache'
-import { shouldProcessRealtimeEvent } from './realtimeEventGuard'
+import { createGuardedHandler } from './createGuardedHandler'
 import { SOCKET_EVENTS } from './socketEvents'
 
 export { doesFuelLogMatchFilters } from '../features/fuel/doesFuelLogMatchFilters'
-
-function createGuardedHandler(queryClient, handler) {
-  return (payload) => {
-    if (!shouldProcessRealtimeEvent(payload?.eventId)) {
-      return
-    }
-    handler(queryClient, payload)
-  }
-}
 
 function extractRecord(payload) {
   const data = payload?.data

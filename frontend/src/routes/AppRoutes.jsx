@@ -8,6 +8,7 @@ import PermissionRoute from './PermissionRoute'
 import PageLoader from '../components/feedback/PageLoader'
 import { ROUTES } from '../constants/routes'
 import { PERMISSIONS } from '../constants/permissions'
+import { ROLES } from '../constants/roles'
 import { useAuth } from '../hooks/useAuth'
 
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'))
@@ -53,12 +54,12 @@ const ExpenseDetailsPage = lazy(
 )
 const ExpenseEditPage = lazy(() => import('../pages/expenses/ExpenseEditPage'))
 const ReportsPage = lazy(() => import('../pages/reports/ReportsPage'))
-const UsersListPage = lazy(() => import('../pages/users/UsersListPage'))
+const UserListPage = lazy(() => import('../pages/users/UserListPage'))
 const UserCreatePage = lazy(() => import('../pages/users/UserCreatePage'))
-const UserDetailPage = lazy(() => import('../pages/users/UserDetailPage'))
+const UserDetailsPage = lazy(() => import('../pages/users/UserDetailsPage'))
 const UserEditPage = lazy(() => import('../pages/users/UserEditPage'))
-const RolesListPage = lazy(() => import('../pages/roles/RolesListPage'))
-const RoleDetailPage = lazy(() => import('../pages/roles/RoleDetailPage'))
+const RoleListPage = lazy(() => import('../pages/roles/RoleListPage'))
+const RoleDetailsPage = lazy(() => import('../pages/roles/RoleDetailsPage'))
 const RolePermissionsPage = lazy(
   () => import('../pages/roles/RolePermissionsPage'),
 )
@@ -284,18 +285,26 @@ export default function AppRoutes() {
             </Route>
 
             <Route
-              element={<PermissionRoute permission={PERMISSIONS.USERS_VIEW} />}
+              element={
+                <PermissionRoute
+                  permission={PERMISSIONS.USERS_VIEW}
+                  roles={[ROLES.SUPER_ADMIN]}
+                />
+              }
             >
-              <Route path={ROUTES.ADMIN_USERS} element={<UsersListPage />} />
+              <Route path={ROUTES.ADMIN_USERS} element={<UserListPage />} />
               <Route
                 path={ROUTES.ADMIN_USER_DETAIL}
-                element={<UserDetailPage />}
+                element={<UserDetailsPage />}
               />
             </Route>
 
             <Route
               element={
-                <PermissionRoute permission={PERMISSIONS.USERS_CREATE} />
+                <PermissionRoute
+                  permission={PERMISSIONS.USERS_CREATE}
+                  roles={[ROLES.SUPER_ADMIN]}
+                />
               }
             >
               <Route
@@ -305,18 +314,28 @@ export default function AppRoutes() {
             </Route>
 
             <Route
-              element={<PermissionRoute permission={PERMISSIONS.USERS_EDIT} />}
+              element={
+                <PermissionRoute
+                  permission={PERMISSIONS.USERS_EDIT}
+                  roles={[ROLES.SUPER_ADMIN]}
+                />
+              }
             >
               <Route path={ROUTES.ADMIN_USER_EDIT} element={<UserEditPage />} />
             </Route>
 
             <Route
-              element={<PermissionRoute permission={PERMISSIONS.ROLES_VIEW} />}
+              element={
+                <PermissionRoute
+                  permission={PERMISSIONS.ROLES_VIEW}
+                  roles={[ROLES.SUPER_ADMIN]}
+                />
+              }
             >
-              <Route path={ROUTES.ADMIN_ROLES} element={<RolesListPage />} />
+              <Route path={ROUTES.ADMIN_ROLES} element={<RoleListPage />} />
               <Route
                 path={ROUTES.ADMIN_ROLE_DETAIL}
-                element={<RoleDetailPage />}
+                element={<RoleDetailsPage />}
               />
             </Route>
 
@@ -324,6 +343,7 @@ export default function AppRoutes() {
               element={
                 <PermissionRoute
                   permission={PERMISSIONS.ROLES_EDIT_PERMISSIONS}
+                  roles={[ROLES.SUPER_ADMIN]}
                 />
               }
             >

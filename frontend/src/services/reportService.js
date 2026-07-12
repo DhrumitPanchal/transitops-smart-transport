@@ -2,14 +2,20 @@ import apiClient from '../api/apiClient'
 import { ENDPOINTS } from '../api/endpoints'
 import { isMockMode } from './serviceMode'
 import { reportMockRepository } from '../mocks/repositories/reportMockRepository'
+import {
+  fromApiSummary,
+  toApiQuery,
+} from '../mappers/reportMapper'
 
 export async function getSummary(params = {}) {
   if (isMockMode()) {
     return reportMockRepository.getSummary(params)
   }
 
-  const { data } = await apiClient.get(ENDPOINTS.REPORTS.SUMMARY, { params })
-  return data
+  const { data } = await apiClient.get(ENDPOINTS.REPORTS.SUMMARY, {
+    params: toApiQuery(params),
+  })
+  return fromApiSummary(data)
 }
 
 export async function exportCsv(params = {}) {
@@ -25,7 +31,7 @@ export async function exportCsv(params = {}) {
   }
 
   const response = await apiClient.get(ENDPOINTS.REPORTS.EXPORT, {
-    params,
+    params: toApiQuery(params),
     responseType: 'blob',
   })
 

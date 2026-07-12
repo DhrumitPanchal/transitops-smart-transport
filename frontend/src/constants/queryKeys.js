@@ -67,6 +67,8 @@ export const QUERY_KEYS = {
 
   roles: {
     all: ['roles'],
+    lists: ['roles', 'list'],
+    list: (params = {}) => ['roles', 'list', params],
     detail: (id) => ['roles', 'detail', String(id)],
   },
 }

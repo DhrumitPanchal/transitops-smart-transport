@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -46,6 +46,7 @@ export default function TripForm({
     handleSubmit,
     setError,
     clearErrors,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(tripSchema),
@@ -58,6 +59,32 @@ export default function TripForm({
   const vehicleId = useWatch({ control, name: 'vehicleId' })
   const driverId = useWatch({ control, name: 'driverId' })
   const cargoWeight = useWatch({ control, name: 'cargoWeight' })
+
+  useEffect(() => {
+    if (!vehicleId) return
+    if (vehiclesQuery.isLoading || vehiclesQuery.isFetching) return
+    if (vehicles.some((item) => item.id === vehicleId)) return
+    setValue('vehicleId', '', { shouldValidate: true, shouldDirty: true })
+  }, [
+    vehicleId,
+    vehicles,
+    vehiclesQuery.isFetching,
+    vehiclesQuery.isLoading,
+    setValue,
+  ])
+
+  useEffect(() => {
+    if (!driverId) return
+    if (driversQuery.isLoading || driversQuery.isFetching) return
+    if (drivers.some((item) => item.id === driverId)) return
+    setValue('driverId', '', { shouldValidate: true, shouldDirty: true })
+  }, [
+    driverId,
+    drivers,
+    driversQuery.isFetching,
+    driversQuery.isLoading,
+    setValue,
+  ])
 
   const selectedVehicle = useMemo(
     () => vehicles.find((item) => item.id === vehicleId) || null,
