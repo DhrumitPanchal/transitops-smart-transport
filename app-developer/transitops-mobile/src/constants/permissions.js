@@ -1,0 +1,151 @@
+import { ROLES } from './roles'
+
+export const PERMISSIONS = {
+  DASHBOARD_VIEW: 'dashboard.view',
+
+  USERS_VIEW: 'users.view',
+  USERS_CREATE: 'users.create',
+  USERS_EDIT: 'users.edit',
+  USERS_CHANGE_STATUS: 'users.change_status',
+  USERS_APPROVE: 'users.approve',
+
+  // Kept as 'roles.permissions' for website/API compatibility
+  ROLES_VIEW: 'roles.view',
+  ROLES_EDIT_PERMISSIONS: 'roles.permissions',
+
+  VEHICLES_VIEW: 'vehicles.view',
+  VEHICLES_CREATE: 'vehicles.create',
+  VEHICLES_EDIT: 'vehicles.edit',
+  VEHICLES_RETIRE: 'vehicles.retire',
+
+  DRIVERS_VIEW: 'drivers.view',
+  DRIVERS_CREATE: 'drivers.create',
+  DRIVERS_EDIT: 'drivers.edit',
+  DRIVERS_CHANGE_STATUS: 'drivers.change_status',
+  DRIVERS_SUSPEND: 'drivers.suspend',
+
+  TRIPS_VIEW: 'trips.view',
+  TRIPS_CREATE: 'trips.create',
+  TRIPS_EDIT_DRAFT: 'trips.edit_draft',
+  TRIPS_DISPATCH: 'trips.dispatch',
+  TRIPS_COMPLETE: 'trips.complete',
+  TRIPS_CANCEL: 'trips.cancel',
+
+  MAINTENANCE_VIEW: 'maintenance.view',
+  MAINTENANCE_CREATE: 'maintenance.create',
+  MAINTENANCE_EDIT: 'maintenance.edit',
+  MAINTENANCE_COMPLETE: 'maintenance.complete',
+  MAINTENANCE_CANCEL: 'maintenance.cancel',
+
+  FUEL_VIEW: 'fuel.view',
+  FUEL_CREATE: 'fuel.create',
+  FUEL_EDIT: 'fuel.edit',
+  FUEL_DELETE: 'fuel.delete',
+
+  EXPENSES_VIEW: 'expenses.view',
+  EXPENSES_CREATE: 'expenses.create',
+  EXPENSES_EDIT: 'expenses.edit',
+  EXPENSES_DELETE: 'expenses.delete',
+
+  REPORTS_VIEW: 'reports.view',
+  REPORTS_EXPORT: 'reports.export',
+}
+
+export const ALL_PERMISSIONS = Object.values(PERMISSIONS)
+
+/** Only Super Admin may hold these. Never grant to other roles. */
+export const SUPER_ADMIN_ONLY_PERMISSIONS = [
+  PERMISSIONS.USERS_VIEW,
+  PERMISSIONS.USERS_CREATE,
+  PERMISSIONS.USERS_EDIT,
+  PERMISSIONS.USERS_CHANGE_STATUS,
+  PERMISSIONS.USERS_APPROVE,
+  PERMISSIONS.ROLES_VIEW,
+  PERMISSIONS.ROLES_EDIT_PERMISSIONS,
+]
+
+export function isSuperAdminOnlyPermission(permission) {
+  return SUPER_ADMIN_ONLY_PERMISSIONS.includes(permission)
+}
+
+export function stripSuperAdminOnlyPermissions(permissions = []) {
+  return permissions.filter(
+    (permission) => !isSuperAdminOnlyPermission(permission),
+  )
+}
+
+export const rolePermissions = {
+  [ROLES.SUPER_ADMIN]: [...ALL_PERMISSIONS],
+
+  [ROLES.FLEET_MANAGER]: [
+    PERMISSIONS.DASHBOARD_VIEW,
+    PERMISSIONS.VEHICLES_VIEW,
+    PERMISSIONS.VEHICLES_CREATE,
+    PERMISSIONS.VEHICLES_EDIT,
+    PERMISSIONS.VEHICLES_RETIRE,
+    PERMISSIONS.MAINTENANCE_VIEW,
+    PERMISSIONS.MAINTENANCE_CREATE,
+    PERMISSIONS.MAINTENANCE_EDIT,
+    PERMISSIONS.MAINTENANCE_COMPLETE,
+    PERMISSIONS.MAINTENANCE_CANCEL,
+    PERMISSIONS.DRIVERS_VIEW,
+    PERMISSIONS.TRIPS_VIEW,
+    PERMISSIONS.FUEL_VIEW,
+    PERMISSIONS.EXPENSES_VIEW,
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.REPORTS_EXPORT,
+  ],
+
+  [ROLES.DISPATCHER]: [
+    PERMISSIONS.DASHBOARD_VIEW,
+    PERMISSIONS.VEHICLES_VIEW,
+    PERMISSIONS.DRIVERS_VIEW,
+    PERMISSIONS.TRIPS_VIEW,
+    PERMISSIONS.TRIPS_CREATE,
+    PERMISSIONS.TRIPS_EDIT_DRAFT,
+    PERMISSIONS.TRIPS_DISPATCH,
+    PERMISSIONS.TRIPS_COMPLETE,
+    PERMISSIONS.TRIPS_CANCEL,
+    PERMISSIONS.MAINTENANCE_VIEW,
+    PERMISSIONS.FUEL_VIEW,
+    PERMISSIONS.FUEL_CREATE,
+    PERMISSIONS.EXPENSES_VIEW,
+    PERMISSIONS.EXPENSES_CREATE,
+    PERMISSIONS.REPORTS_VIEW,
+  ],
+
+  [ROLES.SAFETY_OFFICER]: [
+    PERMISSIONS.DASHBOARD_VIEW,
+    PERMISSIONS.VEHICLES_VIEW,
+    PERMISSIONS.DRIVERS_VIEW,
+    PERMISSIONS.DRIVERS_CREATE,
+    PERMISSIONS.DRIVERS_EDIT,
+    PERMISSIONS.DRIVERS_CHANGE_STATUS,
+    PERMISSIONS.DRIVERS_SUSPEND,
+    PERMISSIONS.TRIPS_VIEW,
+    PERMISSIONS.MAINTENANCE_VIEW,
+    PERMISSIONS.REPORTS_VIEW,
+  ],
+
+  [ROLES.FINANCIAL_ANALYST]: [
+    PERMISSIONS.DASHBOARD_VIEW,
+    PERMISSIONS.VEHICLES_VIEW,
+    PERMISSIONS.DRIVERS_VIEW,
+    PERMISSIONS.TRIPS_VIEW,
+    PERMISSIONS.MAINTENANCE_VIEW,
+    PERMISSIONS.FUEL_VIEW,
+    PERMISSIONS.FUEL_CREATE,
+    PERMISSIONS.FUEL_EDIT,
+    PERMISSIONS.FUEL_DELETE,
+    PERMISSIONS.EXPENSES_VIEW,
+    PERMISSIONS.EXPENSES_CREATE,
+    PERMISSIONS.EXPENSES_EDIT,
+    PERMISSIONS.EXPENSES_DELETE,
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.REPORTS_EXPORT,
+  ],
+}
+
+export function getPermissionsForRole(role) {
+  return rolePermissions[role] || []
+}
