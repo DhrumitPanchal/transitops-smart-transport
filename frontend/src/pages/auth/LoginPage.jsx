@@ -133,13 +133,19 @@ export default function LoginPage() {
       </form>
 
       <p className="mt-6 text-center text-sm text-slate-600">
-        Don&apos;t have an account?{' '}
-        <Link
-          to={ROUTES.REGISTER}
-          className="font-medium text-teal-700 hover:underline"
-        >
-          Register
-        </Link>
+        {env.useMocks ? (
+          <>
+            Don&apos;t have an account?{' '}
+            <Link
+              to={ROUTES.REGISTER}
+              className="font-medium text-teal-700 hover:underline"
+            >
+              Register
+            </Link>
+          </>
+        ) : (
+          'Use your administrator-issued credentials to sign in.'
+        )}
       </p>
 
       {env.useMocks && demoAccounts.length > 0 ? (

@@ -52,45 +52,42 @@ export default function MaintenanceTable({
         MAINTENANCE_TYPE_LABELS[row.maintenanceType] || row.maintenanceType,
     },
     {
-      key: 'description',
-      header: 'Description',
+      key: 'title',
+      header: 'Title',
       sortable: true,
-      render: (row) => (
-        <span className="line-clamp-2 max-w-xs">{row.description}</span>
-      ),
+      render: (row) => row.title || row.description || '—',
     },
     {
-      key: 'startDate',
-      header: 'Start Date',
+      key: 'scheduledDate',
+      header: 'Scheduled',
       sortable: true,
-      render: (row) => formatDate(row.startDate),
+      render: (row) => formatDate(row.scheduledDate || row.startDate),
     },
     {
-      key: 'expectedEndDate',
-      header: 'Expected End Date',
+      key: 'completedDate',
+      header: 'Completed',
       sortable: true,
-      render: (row) => formatDate(row.expectedEndDate),
+      render: (row) =>
+        formatDate(row.completedDate || row.completionDate),
     },
     {
-      key: 'completionDate',
-      header: 'Completion Date',
-      sortable: true,
-      render: (row) => formatDate(row.completionDate),
-    },
-    {
-      key: 'cost',
+      key: 'estimatedCost',
       header: 'Cost',
       sortable: true,
       render: (row) =>
         formatCurrency(
-          row.finalCost != null ? row.finalCost : row.cost,
+          row.actualCost != null
+            ? row.actualCost
+            : row.finalCost != null
+              ? row.finalCost
+              : row.estimatedCost ?? row.cost,
         ),
     },
     {
-      key: 'vendorName',
-      header: 'Vendor',
+      key: 'serviceCenter',
+      header: 'Service center',
       sortable: true,
-      render: (row) => row.vendorName || '—',
+      render: (row) => row.serviceCenter || row.vendorName || '—',
     },
     {
       key: 'status',
@@ -133,9 +130,9 @@ function MaintenanceRowActions({ row, onComplete, onCancel }) {
   const { hasPermission } = usePermission()
   const detailPath = buildPath(ROUTES.MAINTENANCE_DETAIL, { id: row.id })
   const editPath = buildPath(ROUTES.MAINTENANCE_EDIT, { id: row.id })
-  const isActive =
-    row.status === MAINTENANCE_STATUS.OPEN ||
-    row.status === MAINTENANCE_STATUS.IN_PROGRESS
+  const isScheduled = row.status === MAINTENANCE_STATUS.SCHEDULED
+  const isInProgress = row.status === MAINTENANCE_STATUS.IN_PROGRESS
+  const isActive = isScheduled || isInProgress
 
   const menuItems = [
     {
@@ -155,7 +152,7 @@ function MaintenanceRowActions({ row, onComplete, onCancel }) {
     })
   }
 
-  if (isActive && hasPermission(PERMISSIONS.MAINTENANCE_COMPLETE)) {
+  if (isInProgress && hasPermission(PERMISSIONS.MAINTENANCE_COMPLETE)) {
     menuItems.push({
       id: 'complete',
       label: 'Complete',
@@ -164,7 +161,7 @@ function MaintenanceRowActions({ row, onComplete, onCancel }) {
     })
   }
 
-  if (isActive && hasPermission(PERMISSIONS.MAINTENANCE_CANCEL)) {
+  if (isScheduled && hasPermission(PERMISSIONS.MAINTENANCE_CANCEL)) {
     menuItems.push({
       id: 'cancel',
       label: 'Cancel',
@@ -195,7 +192,7 @@ function MaintenanceRowActions({ row, onComplete, onCancel }) {
           </PermissionGate>
         ) : null}
 
-        {isActive ? (
+        {isInProgress ? (
           <PermissionGate permission={PERMISSIONS.MAINTENANCE_COMPLETE}>
             <button
               type="button"
@@ -207,7 +204,7 @@ function MaintenanceRowActions({ row, onComplete, onCancel }) {
           </PermissionGate>
         ) : null}
 
-        {isActive ? (
+        {isScheduled ? (
           <PermissionGate permission={PERMISSIONS.MAINTENANCE_CANCEL}>
             <button
               type="button"

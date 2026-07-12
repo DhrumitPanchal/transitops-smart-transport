@@ -9,9 +9,13 @@ export function doesMaintenanceMatchFilters(record, filters = {}) {
 
   if (search) {
     const haystack = [
+      record.title,
       record.description,
+      record.serviceCenter,
       record.vendorName,
+      record.remarks,
       record.id,
+      record.maintenanceNumber,
       record.vehicleRegistration,
       record.vehicleName,
       record.vehicle?.registrationNumber,
@@ -42,7 +46,7 @@ export function doesMaintenanceMatchFilters(record, filters = {}) {
   }
 
   if (filters.dateFrom || filters.dateTo) {
-    const start = parseDateValue(record.startDate)
+    const start = parseDateValue(record.scheduledDate || record.startDate)
     if (!start) return false
 
     if (filters.dateFrom) {

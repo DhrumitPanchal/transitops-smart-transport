@@ -59,8 +59,25 @@ export async function dispatch(id) {
     return tripMockRepository.dispatch(id)
   }
 
-  const { data } = await apiClient.post(ENDPOINTS.TRIPS.DISPATCH(id))
-  return fromApiLifecycle(data)
+  const { data } = await apiClient.patch(ENDPOINTS.TRIPS.DISPATCH(id))
+  return fromApiDetail(data)
+}
+
+export async function start(id, payload) {
+  if (isMockMode()) {
+    return tripMockRepository.start
+      ? tripMockRepository.start(id, payload)
+      : tripMockRepository.updateDraft(id, {
+          status: 'IN_PROGRESS',
+          ...payload,
+        })
+  }
+
+  const { data } = await apiClient.patch(
+    ENDPOINTS.TRIPS.START(id),
+    toApiRequest(payload),
+  )
+  return fromApiDetail(data)
 }
 
 export async function complete(id, payload) {
@@ -68,11 +85,11 @@ export async function complete(id, payload) {
     return tripMockRepository.complete(id, payload)
   }
 
-  const { data } = await apiClient.post(
+  const { data } = await apiClient.patch(
     ENDPOINTS.TRIPS.COMPLETE(id),
     toApiRequest(payload),
   )
-  return fromApiLifecycle(data)
+  return fromApiDetail(data)
 }
 
 export async function cancel(id, payload) {
@@ -80,9 +97,8 @@ export async function cancel(id, payload) {
     return tripMockRepository.cancel(id, payload)
   }
 
-  const { data } = await apiClient.post(
-    ENDPOINTS.TRIPS.CANCEL(id),
-    toApiRequest(payload),
-  )
-  return fromApiLifecycle(data)
+  const { data } = await apiClient.patch(ENDPOINTS.TRIPS.CANCEL(id), {
+    reason: payload?.reason || payload?.notes || 'Cancelled',
+  })
+  return fromApiDetail(data)
 }

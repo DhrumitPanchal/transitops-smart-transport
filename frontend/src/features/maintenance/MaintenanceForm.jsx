@@ -14,10 +14,7 @@ import FormSection from '../../components/forms/FormSection'
 import FormActions from '../../components/forms/FormActions'
 import InlineAlert from '../../components/feedback/InlineAlert'
 import { useVehicles } from '../../hooks/vehicles'
-import {
-  DEFAULT_MAINTENANCE_FORM_VALUES,
-  MAINTENANCE_CREATE_STATUS_OPTIONS,
-} from './maintenanceFormDefaults'
+import { DEFAULT_MAINTENANCE_FORM_VALUES } from './maintenanceFormDefaults'
 import {
   applyApiFieldErrors,
   getMaintenanceErrorMessage,
@@ -52,6 +49,7 @@ export default function MaintenanceForm({
     handleSubmit,
     setError,
     clearErrors,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(maintenanceSchema),
@@ -94,7 +92,7 @@ export default function MaintenanceForm({
 
       <FormSection
         title="Vehicle and type"
-        description="ON_TRIP and RETIRED vehicles cannot enter maintenance."
+        description="ON_TRIP and RETIRED vehicles cannot enter maintenance. Start work later to place the vehicle IN_SHOP."
       >
         <Controller
           name="vehicleId"
@@ -107,9 +105,15 @@ export default function MaintenanceForm({
               disabled={busy || lockVehicle || vehiclesQuery.isLoading}
               options={vehicleOptions}
               value={field.value}
-              onChange={field.onChange}
+              onChange={(value) => {
+                field.onChange(value)
+                const selected = eligibleVehicles.find((item) => item.id === value)
+                if (selected?.currentOdometer != null) {
+                  setValue('currentOdometer', String(selected.currentOdometer))
+                }
+              }}
               error={errors.vehicleId?.message}
-              helperText="Creating OPEN or IN_PROGRESS maintenance marks the vehicle IN_SHOP."
+              helperText="Creating a SCHEDULED record does not change vehicle status until maintenance is started."
             />
           )}
         />
@@ -124,14 +128,13 @@ export default function MaintenanceForm({
             registration={register('maintenanceType')}
             error={errors.maintenanceType?.message}
           />
-          <SelectField
-            name="status"
-            label="Status"
+          <TextField
+            name="title"
+            label="Title"
             required
-            options={MAINTENANCE_CREATE_STATUS_OPTIONS}
             disabled={busy}
-            registration={register('status')}
-            error={errors.status?.message}
+            registration={register('title')}
+            error={errors.title?.message}
           />
         </div>
       </FormSection>
@@ -140,50 +143,57 @@ export default function MaintenanceForm({
         <TextAreaField
           name="description"
           label="Description"
-          required
           disabled={busy}
           registration={register('description')}
           error={errors.description?.message}
         />
         <div className="grid gap-1 md:grid-cols-2 md:gap-x-4">
           <DateField
-            name="startDate"
-            label="Start date"
+            name="scheduledDate"
+            label="Scheduled date"
             required
             disabled={busy}
-            registration={register('startDate')}
-            error={errors.startDate?.message}
+            registration={register('scheduledDate')}
+            error={errors.scheduledDate?.message}
           />
-          <DateField
-            name="expectedEndDate"
-            label="Expected end date"
+          <TextField
+            name="serviceCenter"
+            label="Service center"
             required
             disabled={busy}
-            registration={register('expectedEndDate')}
-            error={errors.expectedEndDate?.message}
+            registration={register('serviceCenter')}
+            error={errors.serviceCenter?.message}
           />
           <CurrencyField
-            name="cost"
+            name="estimatedCost"
             label="Estimated cost"
             required
             disabled={busy}
-            registration={register('cost')}
-            error={errors.cost?.message}
+            registration={register('estimatedCost')}
+            error={errors.estimatedCost?.message}
           />
           <TextField
-            name="vendorName"
-            label="Vendor"
+            name="currentOdometer"
+            label="Current odometer"
+            required
             disabled={busy}
-            registration={register('vendorName')}
-            error={errors.vendorName?.message}
+            registration={register('currentOdometer')}
+            error={errors.currentOdometer?.message}
+          />
+          <TextField
+            name="nextServiceOdometer"
+            label="Next service odometer"
+            disabled={busy}
+            registration={register('nextServiceOdometer')}
+            error={errors.nextServiceOdometer?.message}
           />
         </div>
         <TextAreaField
-          name="notes"
-          label="Notes"
+          name="remarks"
+          label="Remarks"
           disabled={busy}
-          registration={register('notes')}
-          error={errors.notes?.message}
+          registration={register('remarks')}
+          error={errors.remarks?.message}
         />
       </FormSection>
 

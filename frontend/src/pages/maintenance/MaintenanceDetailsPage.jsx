@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Ban, CheckCircle2, Pencil } from 'lucide-react'
+import { Ban, CheckCircle2, Pencil, Play } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageContainer from '../../components/common/PageContainer'
 import PageHeader from '../../components/common/PageHeader'
 import Button from '../../components/common/Button'
 import PermissionGate from '../../components/common/PermissionGate'
 import ErrorState from '../../components/feedback/ErrorState'
+import InlineAlert from '../../components/feedback/InlineAlert'
 import TableSkeleton from '../../components/tables/TableSkeleton'
 import MaintenanceSummary from '../../features/maintenance/MaintenanceSummary'
 import CompleteMaintenanceDialog from '../../features/maintenance/CompleteMaintenanceDialog'
 import CancelMaintenanceDialog from '../../features/maintenance/CancelMaintenanceDialog'
 import {
   useMaintenance,
+  useStartMaintenance,
   useCompleteMaintenance,
   useCancelMaintenance,
 } from '../../hooks/maintenance'
@@ -28,6 +30,7 @@ export default function MaintenanceDetailsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const maintenanceQuery = useMaintenance(id)
+  const startMutation = useStartMaintenance()
   const completeMutation = useCompleteMaintenance()
   const cancelMutation = useCancelMaintenance()
 
@@ -36,9 +39,20 @@ export default function MaintenanceDetailsPage() {
   const [actionError, setActionError] = useState(null)
 
   const record = maintenanceQuery.data?.data
-  const isActive =
-    record?.status === MAINTENANCE_STATUS.OPEN ||
-    record?.status === MAINTENANCE_STATUS.IN_PROGRESS
+  const isScheduled = record?.status === MAINTENANCE_STATUS.SCHEDULED
+  const isInProgress = record?.status === MAINTENANCE_STATUS.IN_PROGRESS
+  const isActive = isScheduled || isInProgress
+
+  const handleStart = async () => {
+    if (!record || startMutation.isPending) return
+    try {
+      await startMutation.mutateAsync(record.id)
+      toast.success('Maintenance started')
+      setActionError(null)
+    } catch (error) {
+      setActionError(getMaintenanceErrorMessage(error))
+    }
+  }
 
   const handleComplete = async (values) => {
     if (!record || completeMutation.isPending) return
@@ -102,7 +116,19 @@ export default function MaintenanceDetailsPage() {
               </PermissionGate>
             ) : null}
 
-            {isActive ? (
+            {isScheduled ? (
+              <PermissionGate permission={PERMISSIONS.MAINTENANCE_EDIT}>
+                <Button
+                  icon={Play}
+                  loading={startMutation.isPending}
+                  onClick={handleStart}
+                >
+                  Start
+                </Button>
+              </PermissionGate>
+            ) : null}
+
+            {isInProgress ? (
               <PermissionGate permission={PERMISSIONS.MAINTENANCE_COMPLETE}>
                 <Button
                   icon={CheckCircle2}
@@ -116,7 +142,7 @@ export default function MaintenanceDetailsPage() {
               </PermissionGate>
             ) : null}
 
-            {isActive ? (
+            {isScheduled ? (
               <PermissionGate permission={PERMISSIONS.MAINTENANCE_CANCEL}>
                 <Button
                   variant="danger"
@@ -142,6 +168,14 @@ export default function MaintenanceDetailsPage() {
       />
 
       <MaintenanceSummary maintenance={record} />
+
+      {actionError ? (
+        <div className="mt-4">
+          <InlineAlert tone="error" title="Action failed">
+            {actionError}
+          </InlineAlert>
+        </div>
+      ) : null}
 
       <CompleteMaintenanceDialog
         open={completeDialog.isOpen}

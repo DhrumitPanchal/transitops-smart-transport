@@ -3,6 +3,7 @@ const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { env } = require("../../config");
 const AppError = require("../../common/AppError");
+const { emitDomainEvent, serializeValue } = require("../../utils/socketEmitter");
 
 const pool = new Pool({ connectionString: env.databaseUrl });
 const adapter = new PrismaPg(pool);
@@ -131,7 +132,7 @@ const getFuelLogById = async (id) => {
   return fuelLog;
 };
 
-const createFuelLog = async (data, userId) => {
+const createFuelLog = async (data, userId, meta = {}) => {
   const {
     vehicleId,
     driverId,
@@ -219,10 +220,20 @@ const createFuelLog = async (data, userId) => {
     },
   });
 
-  return fuelLog;
+  emitDomainEvent("fuel.created", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { fuelLog: serializeValue(fuelLog) },
+    dashboardChanges: {
+      fuelCost: Number(totalAmount) || 0,
+      totalOperationalCost: Number(totalAmount) || 0,
+    },
+  });
+
+  return serializeValue(fuelLog);
 };
 
-const updateFuelLog = async (id, data, userId) => {
+const updateFuelLog = async (id, data, userId, meta = {}) => {
   const fuelLog = await prisma.vehicleFuelLog.findUnique({
     where: { id, isDeleted: false },
   });
@@ -269,10 +280,16 @@ const updateFuelLog = async (id, data, userId) => {
     },
   });
 
-  return updatedFuelLog;
+  emitDomainEvent("fuel.updated", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { fuelLog: serializeValue(updatedFuelLog) },
+  });
+
+  return serializeValue(updatedFuelLog);
 };
 
-const deleteFuelLog = async (id, userId) => {
+const deleteFuelLog = async (id, userId, meta = {}) => {
   const fuelLog = await prisma.vehicleFuelLog.findUnique({
     where: { id, isDeleted: false },
   });
@@ -297,6 +314,12 @@ const deleteFuelLog = async (id, userId) => {
       recordId: fuelLog.id,
       oldValue,
     },
+  });
+
+  emitDomainEvent("fuel.deleted", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { id: fuelLog.id, fuelLog: serializeValue({ ...fuelLog, isDeleted: true }) },
   });
 
   return { message: "Fuel log archived successfully" };

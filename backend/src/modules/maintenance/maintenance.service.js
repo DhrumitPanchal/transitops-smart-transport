@@ -3,6 +3,7 @@ const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { env } = require("../../config");
 const AppError = require("../../common/AppError");
+const { emitDomainEvent, serializeValue } = require("../../utils/socketEmitter");
 
 const pool = new Pool({ connectionString: env.databaseUrl });
 const adapter = new PrismaPg(pool);
@@ -136,10 +137,11 @@ const getMaintenanceById = async (id) => {
   return maintenance;
 };
 
-const createMaintenance = async (data, userId) => {
+const createMaintenance = async (data, userId, meta = {}) => {
   const {
     vehicleId,
     maintenanceType,
+    type,
     title,
     description,
     serviceCenter,
@@ -149,6 +151,12 @@ const createMaintenance = async (data, userId) => {
     nextServiceOdometer,
     remarks,
   } = data;
+
+  const resolvedType = maintenanceType || type;
+
+  if (!resolvedType) {
+    throw new AppError(400, "Maintenance type is required");
+  }
 
   const vehicle = await prisma.vehicle.findUnique({
     where: { id: vehicleId, isDeleted: false },
@@ -188,7 +196,7 @@ const createMaintenance = async (data, userId) => {
     data: {
       maintenanceNumber,
       vehicleId,
-      maintenanceType,
+      maintenanceType: resolvedType,
       title,
       description,
       serviceCenter,
@@ -212,10 +220,16 @@ const createMaintenance = async (data, userId) => {
     },
   });
 
-  return maintenance;
+  emitDomainEvent("maintenance.created", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { maintenance: serializeValue(maintenance) },
+  });
+
+  return serializeValue(maintenance);
 };
 
-const updateMaintenance = async (id, data, userId) => {
+const updateMaintenance = async (id, data, userId, meta = {}) => {
   const maintenance = await prisma.vehicleMaintenance.findUnique({
     where: { id, isDeleted: false },
   });
@@ -286,10 +300,16 @@ const updateMaintenance = async (id, data, userId) => {
     },
   });
 
-  return updatedMaintenance;
+  emitDomainEvent("maintenance.updated", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { maintenance: serializeValue(updatedMaintenance) },
+  });
+
+  return serializeValue(updatedMaintenance);
 };
 
-const startMaintenance = async (id, userId) => {
+const startMaintenance = async (id, userId, meta = {}) => {
   const maintenance = await prisma.vehicleMaintenance.findUnique({
     where: { id, isDeleted: false },
     include: { vehicle: true },
@@ -309,7 +329,7 @@ const startMaintenance = async (id, userId) => {
       data: { status: "IN_PROGRESS" },
     });
 
-    await tx.vehicle.update({
+    const updatedVehicle = await tx.vehicle.update({
       where: { id: maintenance.vehicleId },
       data: { status: "IN_SHOP" },
     });
@@ -325,13 +345,44 @@ const startMaintenance = async (id, userId) => {
       },
     });
 
-    return updatedMaintenance;
+    return { maintenance: updatedMaintenance, vehicle: updatedVehicle };
   });
 
-  return result;
+  const payload = {
+    maintenance: serializeValue(result.maintenance),
+    vehicle: serializeValue(result.vehicle),
+  };
+
+  emitDomainEvent("maintenance.started", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: payload,
+    dashboardChanges: {
+      availableVehicles: maintenance.vehicle.status === "AVAILABLE" ? -1 : 0,
+      vehiclesInMaintenance: 1,
+    },
+  });
+
+  emitDomainEvent("maintenance.updated", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: payload,
+  });
+
+  emitDomainEvent("vehicle.status_changed", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: {
+      vehicle: payload.vehicle,
+      oldStatus: maintenance.vehicle.status,
+      newStatus: "IN_SHOP",
+    },
+  });
+
+  return payload.maintenance;
 };
 
-const completeMaintenance = async (id, data, userId) => {
+const completeMaintenance = async (id, data, userId, meta = {}) => {
   const maintenance = await prisma.vehicleMaintenance.findUnique({
     where: { id, isDeleted: false },
     include: { vehicle: true },
@@ -363,7 +414,7 @@ const completeMaintenance = async (id, data, userId) => {
       },
     });
 
-    await tx.vehicle.update({
+    const updatedVehicle = await tx.vehicle.update({
       where: { id: maintenance.vehicleId },
       data: { status: "AVAILABLE" },
     });
@@ -379,13 +430,39 @@ const completeMaintenance = async (id, data, userId) => {
       },
     });
 
-    return updatedMaintenance;
+    return { maintenance: updatedMaintenance, vehicle: updatedVehicle };
   });
 
-  return result;
+  const payload = {
+    maintenance: serializeValue(result.maintenance),
+    vehicle: serializeValue(result.vehicle),
+  };
+
+  emitDomainEvent("maintenance.completed", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: payload,
+    dashboardChanges: {
+      availableVehicles: 1,
+      vehiclesInMaintenance: -1,
+      maintenanceCost: Number(actualCost) || 0,
+    },
+  });
+
+  emitDomainEvent("vehicle.status_changed", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: {
+      vehicle: payload.vehicle,
+      oldStatus: "IN_SHOP",
+      newStatus: "AVAILABLE",
+    },
+  });
+
+  return payload.maintenance;
 };
 
-const cancelMaintenance = async (id, data, userId) => {
+const cancelMaintenance = async (id, data, userId, meta = {}) => {
   const maintenance = await prisma.vehicleMaintenance.findUnique({
     where: { id, isDeleted: false },
     include: { vehicle: true },
@@ -410,8 +487,10 @@ const cancelMaintenance = async (id, data, userId) => {
       },
     });
 
+    let updatedVehicle = maintenance.vehicle;
+
     if (maintenance.vehicle.status === "IN_SHOP") {
-      await tx.vehicle.update({
+      updatedVehicle = await tx.vehicle.update({
         where: { id: maintenance.vehicleId },
         data: { status: "AVAILABLE" },
       });
@@ -428,13 +507,40 @@ const cancelMaintenance = async (id, data, userId) => {
       },
     });
 
-    return updatedMaintenance;
+    return { maintenance: updatedMaintenance, vehicle: updatedVehicle };
   });
 
-  return result;
+  const payload = {
+    maintenance: serializeValue(result.maintenance),
+    vehicle: serializeValue(result.vehicle),
+  };
+
+  emitDomainEvent("maintenance.cancelled", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: payload,
+  });
+
+  if (maintenance.vehicle.status === "IN_SHOP") {
+    emitDomainEvent("vehicle.status_changed", {
+      actorUserId: userId,
+      excludeSocketId: meta.socketId,
+      data: {
+        vehicle: payload.vehicle,
+        oldStatus: "IN_SHOP",
+        newStatus: "AVAILABLE",
+      },
+      dashboardChanges: {
+        availableVehicles: 1,
+        vehiclesInMaintenance: -1,
+      },
+    });
+  }
+
+  return payload.maintenance;
 };
 
-const deleteMaintenance = async (id, userId) => {
+const deleteMaintenance = async (id, userId, meta = {}) => {
   const maintenance = await prisma.vehicleMaintenance.findUnique({
     where: { id, isDeleted: false },
   });
@@ -462,6 +568,14 @@ const deleteMaintenance = async (id, userId) => {
       action: "DELETE",
       recordId: maintenance.id,
       oldValue,
+    },
+  });
+
+  emitDomainEvent("maintenance.cancelled", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: {
+      maintenance: serializeValue({ ...maintenance, isDeleted: true }),
     },
   });
 

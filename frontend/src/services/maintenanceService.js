@@ -39,7 +39,7 @@ export async function create(payload) {
     ENDPOINTS.MAINTENANCE.BASE,
     toApiRequest(payload),
   )
-  return fromApiLifecycle(data)
+  return fromApiDetail(data)
 }
 
 export async function update(id, payload) {
@@ -51,7 +51,18 @@ export async function update(id, payload) {
     ENDPOINTS.MAINTENANCE.BY_ID(id),
     toApiRequest(payload),
   )
-  return fromApiLifecycle(data)
+  return fromApiDetail(data)
+}
+
+export async function start(id) {
+  if (isMockMode()) {
+    return maintenanceMockRepository.start
+      ? maintenanceMockRepository.start(id)
+      : maintenanceMockRepository.update(id, { status: 'IN_PROGRESS' })
+  }
+
+  const { data } = await apiClient.patch(ENDPOINTS.MAINTENANCE.START(id))
+  return fromApiDetail(data)
 }
 
 export async function complete(id, payload) {
@@ -59,11 +70,18 @@ export async function complete(id, payload) {
     return maintenanceMockRepository.complete(id, payload)
   }
 
-  const { data } = await apiClient.post(
+  const body = {
+    actualCost: payload?.actualCost ?? payload?.cost,
+    completedDate: payload?.completedDate ?? payload?.endDate,
+    nextServiceOdometer: payload?.nextServiceOdometer,
+    remarks: payload?.remarks ?? payload?.notes,
+  }
+
+  const { data } = await apiClient.patch(
     ENDPOINTS.MAINTENANCE.COMPLETE(id),
-    toApiRequest(payload),
+    body,
   )
-  return fromApiLifecycle(data)
+  return fromApiDetail(data)
 }
 
 export async function cancel(id, payload) {
@@ -71,9 +89,8 @@ export async function cancel(id, payload) {
     return maintenanceMockRepository.cancel(id, payload)
   }
 
-  const { data } = await apiClient.post(
-    ENDPOINTS.MAINTENANCE.CANCEL(id),
-    toApiRequest(payload),
-  )
-  return fromApiLifecycle(data)
+  const { data } = await apiClient.patch(ENDPOINTS.MAINTENANCE.CANCEL(id), {
+    reason: payload?.reason || payload?.notes || 'Cancelled',
+  })
+  return fromApiDetail(data)
 }

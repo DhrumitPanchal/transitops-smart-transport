@@ -26,6 +26,7 @@ export default function UserTable({
   onChangeStatus,
   onApprove,
   emptyAction,
+  allowMutations = true,
 }) {
   const columns = [
     {
@@ -69,7 +70,11 @@ export default function UserTable({
       loading={loading}
       error={error}
       emptyTitle="No users found"
-      emptyDescription="Try adjusting filters or create a user."
+      emptyDescription={
+        allowMutations
+          ? 'Try adjusting filters or create a user.'
+          : 'Try adjusting filters.'
+      }
       emptyAction={emptyAction}
       sortBy={sortBy}
       sortDirection={sortDirection}
@@ -82,6 +87,7 @@ export default function UserTable({
       rowActions={(row) => (
         <UserRowActions
           row={row}
+          allowMutations={allowMutations}
           onChangeStatus={onChangeStatus}
           onApprove={onApprove}
         />
@@ -90,7 +96,7 @@ export default function UserTable({
   )
 }
 
-function UserRowActions({ row, onChangeStatus, onApprove }) {
+function UserRowActions({ row, allowMutations, onChangeStatus, onApprove }) {
   const navigate = useNavigate()
   const { hasPermission } = usePermission()
   const detailPath = buildPath(ROUTES.ADMIN_USER_DETAIL, { id: row.id })
@@ -110,7 +116,11 @@ function UserRowActions({ row, onChangeStatus, onApprove }) {
     },
   ]
 
-  if (isPending && hasPermission(PERMISSIONS.USERS_CHANGE_STATUS)) {
+  if (
+    allowMutations &&
+    isPending &&
+    hasPermission(PERMISSIONS.USERS_CHANGE_STATUS)
+  ) {
     menuItems.push({
       id: 'approve',
       label: 'Approve',
@@ -119,7 +129,7 @@ function UserRowActions({ row, onChangeStatus, onApprove }) {
     })
   }
 
-  if (!isPending && hasPermission(PERMISSIONS.USERS_EDIT)) {
+  if (allowMutations && !isPending && hasPermission(PERMISSIONS.USERS_EDIT)) {
     menuItems.push({
       id: 'edit',
       label: 'Edit',
@@ -128,7 +138,7 @@ function UserRowActions({ row, onChangeStatus, onApprove }) {
     })
   }
 
-  if (hasPermission(PERMISSIONS.USERS_CHANGE_STATUS)) {
+  if (allowMutations && hasPermission(PERMISSIONS.USERS_CHANGE_STATUS)) {
     menuItems.push({
       id: 'status',
       label: nextStatus === USER_STATUS.ACTIVE ? 'Activate' : 'Deactivate',
@@ -146,7 +156,7 @@ function UserRowActions({ row, onChangeStatus, onApprove }) {
         >
           View
         </Link>
-        {isPending ? (
+        {allowMutations && isPending ? (
           <PermissionGate permission={PERMISSIONS.USERS_CHANGE_STATUS}>
             <button
               type="button"
@@ -156,7 +166,8 @@ function UserRowActions({ row, onChangeStatus, onApprove }) {
               Approve
             </button>
           </PermissionGate>
-        ) : (
+        ) : null}
+        {allowMutations && !isPending ? (
           <PermissionGate permission={PERMISSIONS.USERS_EDIT}>
             <Link
               to={editPath}
@@ -165,16 +176,18 @@ function UserRowActions({ row, onChangeStatus, onApprove }) {
               Edit
             </Link>
           </PermissionGate>
-        )}
-        <PermissionGate permission={PERMISSIONS.USERS_CHANGE_STATUS}>
-          <button
-            type="button"
-            onClick={() => onChangeStatus?.(row)}
-            className="rounded-md px-2 py-1 text-sm text-slate-700 hover:bg-slate-100"
-          >
-            {nextStatus === USER_STATUS.ACTIVE ? 'Activate' : 'Deactivate'}
-          </button>
-        </PermissionGate>
+        ) : null}
+        {allowMutations ? (
+          <PermissionGate permission={PERMISSIONS.USERS_CHANGE_STATUS}>
+            <button
+              type="button"
+              onClick={() => onChangeStatus?.(row)}
+              className="rounded-md px-2 py-1 text-sm text-slate-700 hover:bg-slate-100"
+            >
+              {nextStatus === USER_STATUS.ACTIVE ? 'Activate' : 'Deactivate'}
+            </button>
+          </PermissionGate>
+        ) : null}
       </div>
 
       <div className="xl:hidden">

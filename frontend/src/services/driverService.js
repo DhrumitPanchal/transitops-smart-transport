@@ -83,7 +83,7 @@ export async function getAvailable(params = {}) {
   }
 
   const { data } = await apiClient.get(ENDPOINTS.DRIVERS.AVAILABLE, {
-    params: toApiQuery(params),
+    params: toApiQuery({ ...params, status: 'AVAILABLE' }),
   })
   return fromApiList(data)
 }

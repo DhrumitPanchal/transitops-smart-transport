@@ -21,7 +21,8 @@ export function useUpdateRolePermissions() {
       applyRolePermissionsCacheUpdate(queryClient, role)
 
       const current = getAuthSessionUser()
-      if (current?.role && role.key === current.role) {
+      const roleCode = role.key || role.code
+      if (current?.role && roleCode === current.role) {
         applyAuthSessionUserUpdate({
           permissions: role.permissions,
         })

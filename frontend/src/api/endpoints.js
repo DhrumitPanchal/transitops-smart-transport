@@ -3,7 +3,6 @@ export const ENDPOINTS = {
     LOGIN: '/auth/login',
     LOGOUT: '/auth/logout',
     ME: '/auth/me',
-    REGISTER: '/auth/register',
   },
   DASHBOARD: {
     SUMMARY: '/dashboard/summary',
@@ -11,27 +10,29 @@ export const ENDPOINTS = {
   VEHICLES: {
     BASE: '/vehicles',
     BY_ID: (id) => `/vehicles/${id}`,
-    RETIRE: (id) => `/vehicles/${id}/retire`,
-    AVAILABLE: '/vehicles/available',
+    STATUS: (id) => `/vehicles/${id}/status`,
+    AVAILABLE: '/vehicles',
   },
   DRIVERS: {
     BASE: '/drivers',
     BY_ID: (id) => `/drivers/${id}`,
     STATUS: (id) => `/drivers/${id}/status`,
-    AVAILABLE: '/drivers/available',
+    AVAILABLE: '/drivers',
+  },
+  MAINTENANCE: {
+    BASE: '/maintenance',
+    BY_ID: (id) => `/maintenance/${id}`,
+    START: (id) => `/maintenance/${id}/start`,
+    COMPLETE: (id) => `/maintenance/${id}/complete`,
+    CANCEL: (id) => `/maintenance/${id}/cancel`,
   },
   TRIPS: {
     BASE: '/trips',
     BY_ID: (id) => `/trips/${id}`,
     DISPATCH: (id) => `/trips/${id}/dispatch`,
+    START: (id) => `/trips/${id}/start`,
     COMPLETE: (id) => `/trips/${id}/complete`,
     CANCEL: (id) => `/trips/${id}/cancel`,
-  },
-  MAINTENANCE: {
-    BASE: '/maintenance',
-    BY_ID: (id) => `/maintenance/${id}`,
-    COMPLETE: (id) => `/maintenance/${id}/complete`,
-    CANCEL: (id) => `/maintenance/${id}/cancel`,
   },
   FUEL: {
     BASE: '/fuel-logs',
@@ -48,12 +49,11 @@ export const ENDPOINTS = {
   USERS: {
     BASE: '/users',
     BY_ID: (id) => `/users/${id}`,
-    STATUS: (id) => `/users/${id}/status`,
-    APPROVE: (id) => `/users/${id}/approve`,
   },
   ROLES: {
     BASE: '/roles',
     BY_ID: (id) => `/roles/${id}`,
     PERMISSIONS: (id) => `/roles/${id}/permissions`,
+    PERMISSIONS_CATALOG: '/roles/permissions',
   },
 }

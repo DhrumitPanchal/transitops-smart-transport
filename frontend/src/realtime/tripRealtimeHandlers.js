@@ -40,6 +40,12 @@ export function registerTripRealtimeHandlers(socket, queryClient) {
     })
   })
 
+  const onStarted = createGuardedHandler(queryClient, (client, payload) => {
+    const trip = payload?.data?.trip
+    if (!trip) return
+    applyTripCacheUpdate(client, trip, { isCreate: false })
+  })
+
   const onCompleted = createGuardedHandler(queryClient, (client, payload) => {
     const { trip, vehicle, driver, fuelLog } = extractLifecyclePayload(payload)
     if (!trip) return
@@ -66,6 +72,7 @@ export function registerTripRealtimeHandlers(socket, queryClient) {
   socket.on(SOCKET_EVENTS.TRIP_CREATED, onCreated)
   socket.on(SOCKET_EVENTS.TRIP_UPDATED, onUpdated)
   socket.on(SOCKET_EVENTS.TRIP_DISPATCHED, onDispatched)
+  socket.on(SOCKET_EVENTS.TRIP_STARTED, onStarted)
   socket.on(SOCKET_EVENTS.TRIP_COMPLETED, onCompleted)
   socket.on(SOCKET_EVENTS.TRIP_CANCELLED, onCancelled)
 
@@ -73,6 +80,7 @@ export function registerTripRealtimeHandlers(socket, queryClient) {
     socket.off(SOCKET_EVENTS.TRIP_CREATED, onCreated)
     socket.off(SOCKET_EVENTS.TRIP_UPDATED, onUpdated)
     socket.off(SOCKET_EVENTS.TRIP_DISPATCHED, onDispatched)
+    socket.off(SOCKET_EVENTS.TRIP_STARTED, onStarted)
     socket.off(SOCKET_EVENTS.TRIP_COMPLETED, onCompleted)
     socket.off(SOCKET_EVENTS.TRIP_CANCELLED, onCancelled)
   }

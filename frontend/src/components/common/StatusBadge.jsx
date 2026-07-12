@@ -9,6 +9,7 @@ const STATUS_TONES = {
   DISPATCHED: 'blue',
   IN_PROGRESS: 'blue',
   OPEN: 'amber',
+  SCHEDULED: 'amber',
   DRAFT: 'slate',
   OFF_DUTY: 'slate',
   PENDING: 'amber',

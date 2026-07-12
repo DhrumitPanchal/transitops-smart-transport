@@ -41,7 +41,7 @@ function buildVehicleDetail(vehicle) {
     trips.find((item) => item.status === TRIP_STATUS.DISPATCHED) || null
   const activeMaintenance =
     maintenanceItems.find((item) =>
-      [MAINTENANCE_STATUS.OPEN, MAINTENANCE_STATUS.IN_PROGRESS].includes(
+      [MAINTENANCE_STATUS.SCHEDULED, MAINTENANCE_STATUS.IN_PROGRESS].includes(
         item.status,
       ),
     ) || null

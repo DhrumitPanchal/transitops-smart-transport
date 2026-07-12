@@ -3,7 +3,7 @@ const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { env } = require("../../config");
 const AppError = require("../../common/AppError");
-const { emitToAll, emitToRole } = require("../../utils/socketEmitter");
+const { emitDomainEvent, serializeValue } = require("../../utils/socketEmitter");
 
 const pool = new Pool({ connectionString: env.databaseUrl });
 const adapter = new PrismaPg(pool);
@@ -123,7 +123,7 @@ const getDriverById = async (id) => {
   return driver;
 };
 
-const createDriver = async (data, userId) => {
+const createDriver = async (data, userId, meta = {}) => {
   const {
     employeeCode,
     firstName,
@@ -211,14 +211,19 @@ const createDriver = async (data, userId) => {
     },
   });
 
-  emitToAll("driver.created", {
-    driverId: driver.id,
+  emitDomainEvent("driver.created", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { driver: serializeValue(driver) },
+    dashboardChanges: {
+      availableDrivers: 1,
+    },
   });
 
-  return driver;
+  return serializeValue(driver);
 };
 
-const updateDriver = async (id, data, userId) => {
+const updateDriver = async (id, data, userId, meta = {}) => {
   const driver = await prisma.driver.findUnique({
     where: { id, isDeleted: false },
   });
@@ -302,14 +307,16 @@ const updateDriver = async (id, data, userId) => {
     },
   });
 
-  emitToAll("driver.updated", {
-    driverId: driver.id,
+  emitDomainEvent("driver.updated", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { driver: serializeValue(updatedDriver) },
   });
 
-  return updatedDriver;
+  return serializeValue(updatedDriver);
 };
 
-const changeDriverStatus = async (id, status, userId) => {
+const changeDriverStatus = async (id, status, userId, meta = {}) => {
   const driver = await prisma.driver.findUnique({
     where: { id, isDeleted: false },
   });
@@ -352,15 +359,35 @@ const changeDriverStatus = async (id, status, userId) => {
     },
   });
 
-  emitToAll("driver.status_changed", {
-    driverId: driver.id,
-    status: updatedDriver.status,
+  const serialized = serializeValue(updatedDriver);
+
+  emitDomainEvent("driver.status_changed", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: {
+      driver: serialized,
+      status: updatedDriver.status,
+    },
+    dashboardChanges: {
+      availableDrivers:
+        updatedDriver.status === "AVAILABLE"
+          ? 1
+          : oldValue.status === "AVAILABLE"
+            ? -1
+            : 0,
+      suspendedDrivers:
+        updatedDriver.status === "SUSPENDED"
+          ? 1
+          : oldValue.status === "SUSPENDED"
+            ? -1
+            : 0,
+    },
   });
 
-  return updatedDriver;
+  return serialized;
 };
 
-const deleteDriver = async (id, userId) => {
+const deleteDriver = async (id, userId, meta = {}) => {
   const driver = await prisma.driver.findUnique({
     where: { id, isDeleted: false },
   });
@@ -402,8 +429,13 @@ const deleteDriver = async (id, userId) => {
     },
   });
 
-  emitToRole("Super Admin", "driver.deleted", {
-    driverId: driver.id,
+  emitDomainEvent("driver.deleted", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { driver: serializeValue({ ...driver, isDeleted: true }) },
+    dashboardChanges: {
+      availableDrivers: driver.status === "AVAILABLE" ? -1 : 0,
+    },
   });
 
   return { message: "Driver archived successfully" };

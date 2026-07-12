@@ -3,7 +3,7 @@ const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { env } = require("../../config");
 const AppError = require("../../common/AppError");
-const { emitToAll, emitToRole } = require("../../utils/socketEmitter");
+const { emitDomainEvent, serializeValue } = require("../../utils/socketEmitter");
 
 const pool = new Pool({ connectionString: env.databaseUrl });
 const adapter = new PrismaPg(pool);
@@ -127,7 +127,7 @@ const getVehicleById = async (id) => {
   return vehicle;
 };
 
-const createVehicle = async (data, userId) => {
+const createVehicle = async (data, userId, meta = {}) => {
   const {
     registrationNumber,
     vehicleName,
@@ -183,16 +183,20 @@ const createVehicle = async (data, userId) => {
     },
   });
 
-  emitToAll("vehicle.created", {
-    vehicleId: vehicle.id,
-    registrationNumber: vehicle.registrationNumber,
-    status: vehicle.status,
+  emitDomainEvent("vehicle.created", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { vehicle: serializeValue(vehicle) },
+    dashboardChanges: {
+      availableVehicles: 1,
+      activeVehicles: 1,
+    },
   });
 
-  return vehicle;
+  return serializeValue(vehicle);
 };
 
-const updateVehicle = async (id, data, userId) => {
+const updateVehicle = async (id, data, userId, meta = {}) => {
   const vehicle = await prisma.vehicle.findUnique({
     where: { id, isDeleted: false },
   });
@@ -257,14 +261,16 @@ const updateVehicle = async (id, data, userId) => {
     },
   });
 
-  emitToAll("vehicle.updated", {
-    vehicleId: vehicle.id,
+  emitDomainEvent("vehicle.updated", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { vehicle: serializeValue(updatedVehicle) },
   });
 
-  return updatedVehicle;
+  return serializeValue(updatedVehicle);
 };
 
-const changeVehicleStatus = async (id, status, userId) => {
+const changeVehicleStatus = async (id, status, userId, meta = {}) => {
   const vehicle = await prisma.vehicle.findUnique({
     where: { id, isDeleted: false },
   });
@@ -282,7 +288,7 @@ const changeVehicleStatus = async (id, status, userId) => {
     const activeMaintenance = await prisma.vehicleMaintenance.findFirst({
       where: {
         vehicleId: id,
-        status: { in: ["OPEN", "IN_PROGRESS"] },
+        status: { in: ["SCHEDULED", "IN_PROGRESS"] },
       },
     });
 
@@ -314,16 +320,34 @@ const changeVehicleStatus = async (id, status, userId) => {
     },
   });
 
-  emitToAll("vehicle.status_changed", {
-    vehicleId: vehicle.id,
-    oldStatus: oldValue.status,
-    newStatus: updatedVehicle.status,
+  const serialized = serializeValue(updatedVehicle);
+
+  emitDomainEvent("vehicle.status_changed", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: {
+      vehicle: serialized,
+      oldStatus: oldValue.status,
+      newStatus: updatedVehicle.status,
+    },
   });
 
-  return updatedVehicle;
+  if (updatedVehicle.status === "RETIRED") {
+    emitDomainEvent("vehicle.retired", {
+      actorUserId: userId,
+      excludeSocketId: meta.socketId,
+      data: { vehicle: serialized },
+      dashboardChanges: {
+        availableVehicles: oldValue.status === "AVAILABLE" ? -1 : 0,
+        activeVehicles: -1,
+      },
+    });
+  }
+
+  return serialized;
 };
 
-const deleteVehicle = async (id, userId) => {
+const deleteVehicle = async (id, userId, meta = {}) => {
   const vehicle = await prisma.vehicle.findUnique({
     where: { id, isDeleted: false },
   });
@@ -350,7 +374,7 @@ const deleteVehicle = async (id, userId) => {
   const activeMaintenance = await prisma.vehicleMaintenance.findFirst({
     where: {
       vehicleId: id,
-      status: { in: ["OPEN", "IN_PROGRESS"] },
+      status: { in: ["SCHEDULED", "IN_PROGRESS"] },
     },
   });
 
@@ -376,8 +400,14 @@ const deleteVehicle = async (id, userId) => {
     },
   });
 
-  emitToRole("Super Admin", "vehicle.deleted", {
-    vehicleId: vehicle.id,
+  emitDomainEvent("vehicle.deleted", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { vehicle: serializeValue({ ...vehicle, isDeleted: true }) },
+    dashboardChanges: {
+      availableVehicles: vehicle.status === "AVAILABLE" ? -1 : 0,
+      activeVehicles: -1,
+    },
   });
 
   return { message: "Vehicle archived successfully" };

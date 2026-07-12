@@ -27,6 +27,7 @@ import { buildPath, getRoleLabel } from '../../utils/helpers'
 import { formatDateTime } from '../../utils/formatters'
 import { useDisclosure } from '../../hooks/useDisclosure'
 import { groupPermissions } from '../../utils/permissionGroups'
+import { isMockMode } from '../../services/serviceMode'
 
 function DetailItem({ label, children }) {
   return (
@@ -40,6 +41,7 @@ function DetailItem({ label, children }) {
 }
 
 export default function UserDetailsPage() {
+  const mocksEnabled = isMockMode()
   const { id } = useParams()
   const navigate = useNavigate()
   const { user: currentUser } = useAuth()
@@ -121,7 +123,7 @@ export default function UserDetailsPage() {
         description={record.email}
         actions={
           <div className="flex flex-wrap gap-2">
-            {isPending ? (
+            {mocksEnabled && isPending ? (
               <PermissionGate permission={PERMISSIONS.USERS_CHANGE_STATUS}>
                 <Button
                   icon={CheckCircle2}
@@ -133,7 +135,8 @@ export default function UserDetailsPage() {
                   Approve
                 </Button>
               </PermissionGate>
-            ) : (
+            ) : null}
+            {mocksEnabled && !isPending ? (
               <PermissionGate permission={PERMISSIONS.USERS_EDIT}>
                 <Link to={buildPath(ROUTES.ADMIN_USER_EDIT, { id: record.id })}>
                   <Button variant="secondary" icon={Pencil}>
@@ -141,19 +144,21 @@ export default function UserDetailsPage() {
                   </Button>
                 </Link>
               </PermissionGate>
-            )}
-            <PermissionGate permission={PERMISSIONS.USERS_CHANGE_STATUS}>
-              <Button
-                variant="secondary"
-                icon={UserCog}
-                onClick={() => {
-                  setActionError(null)
-                  statusDialog.open()
-                }}
-              >
-                {nextLabel}
-              </Button>
-            </PermissionGate>
+            ) : null}
+            {mocksEnabled ? (
+              <PermissionGate permission={PERMISSIONS.USERS_CHANGE_STATUS}>
+                <Button
+                  variant="secondary"
+                  icon={UserCog}
+                  onClick={() => {
+                    setActionError(null)
+                    statusDialog.open()
+                  }}
+                >
+                  {nextLabel}
+                </Button>
+              </PermissionGate>
+            ) : null}
             <Button
               variant="secondary"
               onClick={() => navigate(ROUTES.ADMIN_USERS)}
@@ -170,9 +175,13 @@ export default function UserDetailsPage() {
           <dl>
             <DetailItem label="Name">{record.name}</DetailItem>
             <DetailItem label="Email">{record.email}</DetailItem>
+            <DetailItem label="Phone">{record.phone || '—'}</DetailItem>
             <DetailItem label="Role">{getRoleLabel(record.role)}</DetailItem>
             <DetailItem label="Status">
               <StatusBadge status={record.status} />
+            </DetailItem>
+            <DetailItem label="Last login">
+              {record.lastLogin ? formatDateTime(record.lastLogin) : '—'}
             </DetailItem>
             <DetailItem label="Created">
               {formatDateTime(record.createdAt)}
@@ -193,7 +202,7 @@ export default function UserDetailsPage() {
               <p className="text-sm text-slate-500">
                 {isPending
                   ? 'No permissions until this account is approved.'
-                  : 'No permissions assigned.'}
+                  : 'No permissions on this user payload. Auth session users include permissions.'}
               </p>
             ) : (
               permissionGroups.map((group) => (
@@ -218,33 +227,37 @@ export default function UserDetailsPage() {
         </Card>
       </div>
 
-      <ChangeUserStatusDialog
-        open={statusDialog.isOpen}
-        user={record}
-        currentUserId={currentUser?.id}
-        loading={statusMutation.isPending}
-        errorMessage={actionError}
-        onClose={() => {
-          if (statusMutation.isPending) return
-          statusDialog.close()
-          setActionError(null)
-        }}
-        onConfirm={handleStatusChange}
-      />
+      {mocksEnabled ? (
+        <>
+          <ChangeUserStatusDialog
+            open={statusDialog.isOpen}
+            user={record}
+            currentUserId={currentUser?.id}
+            loading={statusMutation.isPending}
+            errorMessage={actionError}
+            onClose={() => {
+              if (statusMutation.isPending) return
+              statusDialog.close()
+              setActionError(null)
+            }}
+            onConfirm={handleStatusChange}
+          />
 
-      <ApproveUserDialog
-        open={approveDialog.isOpen}
-        user={record}
-        currentUserId={currentUser?.id}
-        loading={approveMutation.isPending}
-        errorMessage={actionError}
-        onClose={() => {
-          if (approveMutation.isPending) return
-          approveDialog.close()
-          setActionError(null)
-        }}
-        onConfirm={handleApprove}
-      />
+          <ApproveUserDialog
+            open={approveDialog.isOpen}
+            user={record}
+            currentUserId={currentUser?.id}
+            loading={approveMutation.isPending}
+            errorMessage={actionError}
+            onClose={() => {
+              if (approveMutation.isPending) return
+              approveDialog.close()
+              setActionError(null)
+            }}
+            onConfirm={handleApprove}
+          />
+        </>
+      ) : null}
     </PageContainer>
   )
 }

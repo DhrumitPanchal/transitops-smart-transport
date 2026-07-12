@@ -3,7 +3,7 @@ const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { env } = require("../../config");
 const AppError = require("../../common/AppError");
-const { emitToAll, emitToRole } = require("../../utils/socketEmitter");
+const { emitDomainEvent, serializeValue } = require("../../utils/socketEmitter");
 
 const pool = new Pool({ connectionString: env.databaseUrl });
 const adapter = new PrismaPg(pool);
@@ -192,7 +192,7 @@ const getTripById = async (id) => {
   return trip;
 };
 
-const createTrip = async (data, userId) => {
+const createTrip = async (data, userId, meta = {}) => {
   const {
     vehicleId,
     driverId,
@@ -264,10 +264,19 @@ const createTrip = async (data, userId) => {
     },
   });
 
-  return trip;
+  emitDomainEvent("trip.created", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { trip: serializeValue(trip) },
+    dashboardChanges: {
+      pendingTrips: 1,
+    },
+  });
+
+  return serializeValue(trip);
 };
 
-const updateTrip = async (id, data, userId) => {
+const updateTrip = async (id, data, userId, meta = {}) => {
   const trip = await prisma.trip.findUnique({
     where: { id },
   });
@@ -337,10 +346,16 @@ const updateTrip = async (id, data, userId) => {
     },
   });
 
-  return updatedTrip;
+  emitDomainEvent("trip.updated", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { trip: serializeValue(updatedTrip) },
+  });
+
+  return serializeValue(updatedTrip);
 };
 
-const dispatchTrip = async (id, userId) => {
+const dispatchTrip = async (id, userId, meta = {}) => {
   const trip = await prisma.trip.findUnique({
     where: { id },
     include: {
@@ -375,12 +390,12 @@ const dispatchTrip = async (id, userId) => {
       data: { status: "DISPATCHED" },
     });
 
-    await tx.vehicle.update({
+    const updatedVehicle = await tx.vehicle.update({
       where: { id: trip.vehicleId },
       data: { status: "ON_TRIP" },
     });
 
-    await tx.driver.update({
+    const updatedDriver = await tx.driver.update({
       where: { id: trip.driverId },
       data: { status: "ON_TRIP" },
     });
@@ -396,13 +411,52 @@ const dispatchTrip = async (id, userId) => {
       },
     });
 
-    return updatedTrip;
+    return { trip: updatedTrip, vehicle: updatedVehicle, driver: updatedDriver };
   });
 
-  return result;
+  const payload = {
+    trip: serializeValue(result.trip),
+    vehicle: serializeValue(result.vehicle),
+    driver: serializeValue(result.driver),
+  };
+
+  emitDomainEvent("trip.dispatched", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: payload,
+    dashboardChanges: {
+      pendingTrips: -1,
+      activeTrips: 1,
+      availableVehicles: -1,
+      vehiclesOnTrip: 1,
+      availableDrivers: -1,
+      driversOnDuty: 1,
+    },
+  });
+
+  emitDomainEvent("vehicle.status_changed", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: {
+      vehicle: payload.vehicle,
+      oldStatus: "AVAILABLE",
+      newStatus: "ON_TRIP",
+    },
+  });
+
+  emitDomainEvent("driver.status_changed", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: {
+      driver: payload.driver,
+      status: "ON_TRIP",
+    },
+  });
+
+  return payload.trip;
 };
 
-const startTrip = async (id, data, userId) => {
+const startTrip = async (id, data, userId, meta = {}) => {
   const trip = await prisma.trip.findUnique({
     where: { id },
     include: {
@@ -444,10 +498,22 @@ const startTrip = async (id, data, userId) => {
     },
   });
 
-  return updatedTrip;
+  emitDomainEvent("trip.started", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { trip: serializeValue(updatedTrip) },
+  });
+
+  emitDomainEvent("trip.updated", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { trip: serializeValue(updatedTrip) },
+  });
+
+  return serializeValue(updatedTrip);
 };
 
-const completeTrip = async (id, data, userId) => {
+const completeTrip = async (id, data, userId, meta = {}) => {
   const trip = await prisma.trip.findUnique({
     where: { id },
     include: {
@@ -483,7 +549,7 @@ const completeTrip = async (id, data, userId) => {
       },
     });
 
-    await tx.vehicle.update({
+    const updatedVehicle = await tx.vehicle.update({
       where: { id: trip.vehicleId },
       data: {
         status: "AVAILABLE",
@@ -491,7 +557,7 @@ const completeTrip = async (id, data, userId) => {
       },
     });
 
-    await tx.driver.update({
+    const updatedDriver = await tx.driver.update({
       where: { id: trip.driverId },
       data: { status: "AVAILABLE" },
     });
@@ -507,13 +573,51 @@ const completeTrip = async (id, data, userId) => {
       },
     });
 
-    return updatedTrip;
+    return { trip: updatedTrip, vehicle: updatedVehicle, driver: updatedDriver };
   });
 
-  return result;
+  const payload = {
+    trip: serializeValue(result.trip),
+    vehicle: serializeValue(result.vehicle),
+    driver: serializeValue(result.driver),
+  };
+
+  emitDomainEvent("trip.completed", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: payload,
+    dashboardChanges: {
+      activeTrips: -1,
+      availableVehicles: 1,
+      vehiclesOnTrip: -1,
+      availableDrivers: 1,
+      driversOnDuty: -1,
+    },
+  });
+
+  emitDomainEvent("vehicle.status_changed", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: {
+      vehicle: payload.vehicle,
+      oldStatus: "ON_TRIP",
+      newStatus: "AVAILABLE",
+    },
+  });
+
+  emitDomainEvent("driver.status_changed", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: {
+      driver: payload.driver,
+      status: "AVAILABLE",
+    },
+  });
+
+  return payload.trip;
 };
 
-const cancelTrip = async (id, data, userId) => {
+const cancelTrip = async (id, data, userId, meta = {}) => {
   const trip = await prisma.trip.findUnique({
     where: { id },
     include: {
@@ -532,6 +636,8 @@ const cancelTrip = async (id, data, userId) => {
 
   const { reason } = data;
 
+  const previousStatus = trip.status;
+
   const result = await prisma.$transaction(async (tx) => {
     const updatedTrip = await tx.trip.update({
       where: { id },
@@ -541,13 +647,16 @@ const cancelTrip = async (id, data, userId) => {
       },
     });
 
+    let updatedVehicle = trip.vehicle;
+    let updatedDriver = trip.driver;
+
     if (trip.status === "DISPATCHED" || trip.status === "IN_PROGRESS") {
-      await tx.vehicle.update({
+      updatedVehicle = await tx.vehicle.update({
         where: { id: trip.vehicleId },
         data: { status: "AVAILABLE" },
       });
 
-      await tx.driver.update({
+      updatedDriver = await tx.driver.update({
         where: { id: trip.driverId },
         data: { status: "AVAILABLE" },
       });
@@ -564,10 +673,57 @@ const cancelTrip = async (id, data, userId) => {
       },
     });
 
-    return updatedTrip;
+    return { trip: updatedTrip, vehicle: updatedVehicle, driver: updatedDriver };
   });
 
-  return result;
+  const payload = {
+    trip: serializeValue(result.trip),
+    vehicle: serializeValue(result.vehicle),
+    driver: serializeValue(result.driver),
+  };
+
+  const wasActive =
+    previousStatus === "DISPATCHED" || previousStatus === "IN_PROGRESS";
+
+  emitDomainEvent("trip.cancelled", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: {
+      ...payload,
+      reason,
+    },
+    dashboardChanges: {
+      pendingTrips: previousStatus === "DRAFT" ? -1 : 0,
+      activeTrips: wasActive ? -1 : 0,
+      availableVehicles: wasActive ? 1 : 0,
+      vehiclesOnTrip: wasActive ? -1 : 0,
+      availableDrivers: wasActive ? 1 : 0,
+      driversOnDuty: wasActive ? -1 : 0,
+    },
+  });
+
+  if (wasActive) {
+    emitDomainEvent("vehicle.status_changed", {
+      actorUserId: userId,
+      excludeSocketId: meta.socketId,
+      data: {
+        vehicle: payload.vehicle,
+        oldStatus: "ON_TRIP",
+        newStatus: "AVAILABLE",
+      },
+    });
+
+    emitDomainEvent("driver.status_changed", {
+      actorUserId: userId,
+      excludeSocketId: meta.socketId,
+      data: {
+        driver: payload.driver,
+        status: "AVAILABLE",
+      },
+    });
+  }
+
+  return payload.trip;
 };
 
 module.exports = {

@@ -9,7 +9,7 @@ export const PERMISSIONS = {
   USERS_CHANGE_STATUS: 'users.change_status',
 
   ROLES_VIEW: 'roles.view',
-  ROLES_EDIT_PERMISSIONS: 'roles.edit_permissions',
+  ROLES_EDIT_PERMISSIONS: 'roles.permissions',
 
   VEHICLES_VIEW: 'vehicles.view',
   VEHICLES_CREATE: 'vehicles.create',

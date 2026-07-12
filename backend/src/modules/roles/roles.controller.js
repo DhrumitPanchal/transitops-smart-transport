@@ -1,6 +1,7 @@
 const { sendSuccess } = require("../../common/apiResponse");
 const rolesService = require("./roles.service");
 const AppError = require("../../common/AppError");
+const { getRequestMeta } = require("../../utils/requestMeta");
 
 const getRoles = async (req, res, next) => {
   try {
@@ -36,10 +37,12 @@ const getPermissions = async (req, res, next) => {
 
 const createRole = async (req, res, next) => {
   try {
+    const meta = getRequestMeta(req);
     const role = await rolesService.createRole(req.body, {
       id: req.user?.id,
-      ipAddress: req.ip,
-      userAgent: req.get("user-agent"),
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      socketId: meta.socketId,
     });
 
     return sendSuccess(res, role, "Role created successfully.", 201);
@@ -54,12 +57,14 @@ const createRole = async (req, res, next) => {
 
 const updateRole = async (req, res, next) => {
   try {
+    const meta = getRequestMeta(req);
     const role = await rolesService.updateRole(
       { id: req.params.id, ...req.body },
       {
         id: req.user?.id,
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        socketId: meta.socketId,
       },
     );
 
@@ -75,16 +80,18 @@ const updateRole = async (req, res, next) => {
 
 const updateRolePermissions = async (req, res, next) => {
   try {
-    await rolesService.updateRolePermissions(
+    const meta = getRequestMeta(req);
+    const role = await rolesService.updateRolePermissions(
       { id: req.params.id, ...req.body },
       {
         id: req.user?.id,
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        socketId: meta.socketId,
       },
     );
 
-    return sendSuccess(res, null, "Permissions updated successfully.", 200);
+    return sendSuccess(res, role, "Permissions updated successfully.", 200);
   } catch (error) {
     if (error.statusCode) {
       return next(new AppError(error.statusCode, error.message));

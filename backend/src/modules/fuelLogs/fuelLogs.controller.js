@@ -1,5 +1,6 @@
 const { sendSuccess } = require("../../common/apiResponse");
 const fuelLogsService = require("./fuelLogs.service");
+const { getRequestMeta } = require("../../utils/requestMeta");
 
 const getFuelLogs = async (req, res, next) => {
   try {
@@ -21,7 +22,11 @@ const getFuelLogById = async (req, res, next) => {
 
 const createFuelLog = async (req, res, next) => {
   try {
-    const fuelLog = await fuelLogsService.createFuelLog(req.body, req.user.id);
+    const fuelLog = await fuelLogsService.createFuelLog(
+      req.body,
+      req.user.id,
+      getRequestMeta(req),
+    );
     return sendSuccess(res, fuelLog, "Fuel log created successfully", 201);
   } catch (error) {
     return next(error);
@@ -30,7 +35,12 @@ const createFuelLog = async (req, res, next) => {
 
 const updateFuelLog = async (req, res, next) => {
   try {
-    const fuelLog = await fuelLogsService.updateFuelLog(req.params.id, req.body, req.user.id);
+    const fuelLog = await fuelLogsService.updateFuelLog(
+      req.params.id,
+      req.body,
+      req.user.id,
+      getRequestMeta(req),
+    );
     return sendSuccess(res, fuelLog, "Fuel log updated successfully", 200);
   } catch (error) {
     return next(error);
@@ -39,7 +49,11 @@ const updateFuelLog = async (req, res, next) => {
 
 const deleteFuelLog = async (req, res, next) => {
   try {
-    const result = await fuelLogsService.deleteFuelLog(req.params.id, req.user.id);
+    const result = await fuelLogsService.deleteFuelLog(
+      req.params.id,
+      req.user.id,
+      getRequestMeta(req),
+    );
     return sendSuccess(res, result, "Fuel log archived successfully", 200);
   } catch (error) {
     return next(error);

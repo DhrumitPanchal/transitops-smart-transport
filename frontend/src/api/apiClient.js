@@ -1,7 +1,10 @@
 import axios from 'axios'
 import env from '../config/env'
 import { ApiError } from './apiError'
-import { fieldErrorsFromApi } from '../mappers/apiEnvelope'
+import {
+  fieldErrorsFromApi,
+  fieldErrorsFromDetails,
+} from '../mappers/apiEnvelope'
 import { getSocketId } from '../realtime/socketClient'
 
 let unauthorizedHandler = null
@@ -48,7 +51,10 @@ apiClient.interceptors.response.use(
         : 'Request failed'
     const code = payload.code || 'REQUEST_FAILED'
     const fieldErrors = fieldErrorsFromApi(
-      payload.fieldErrors || payload.errors || null,
+      payload.fieldErrors ||
+        payload.errors ||
+        fieldErrorsFromDetails(payload.details) ||
+        null,
     )
 
     if (status === 401 && typeof unauthorizedHandler === 'function') {

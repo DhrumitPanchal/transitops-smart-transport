@@ -2,6 +2,7 @@ const { PrismaClient } = require("../../../generated/prisma");
 const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { env } = require("../../config");
+const { emitDomainEvent, serializeValue } = require("../../utils/socketEmitter");
 
 const pool = new Pool({ connectionString: env.databaseUrl });
 const adapter = new PrismaPg(pool);
@@ -34,9 +35,6 @@ const getRoles = async ({
       skip,
       take: safeLimit,
       orderBy: [{ isSystem: "desc" }, { [sortBy]: sortOrder }],
-      include: {
-        _count: { select: { users: true } },
-      },
       select: {
         id: true,
         code: true,
@@ -45,6 +43,7 @@ const getRoles = async ({
         isSystem: true,
         createdAt: true,
         updatedAt: true,
+        _count: { select: { users: true } },
       },
     }),
     prisma.role.count({ where }),
@@ -137,7 +136,15 @@ const createRole = async ({ code, name, description }, actor) => {
     },
   });
 
-  return role;
+  const serialized = serializeValue({ ...role, permissions: [] });
+
+  emitDomainEvent("role.created", {
+    actorUserId: actor?.id || null,
+    excludeSocketId: actor?.socketId,
+    data: { role: serialized },
+  });
+
+  return serialized;
 };
 
 const updateRole = async ({ id, name, description }, actor) => {
@@ -191,7 +198,16 @@ const updateRole = async ({ id, name, description }, actor) => {
     },
   });
 
-  return updatedRole;
+  const detailed = await getRoleById(updatedRole.id);
+  const serialized = serializeValue(detailed);
+
+  emitDomainEvent("role.updated", {
+    actorUserId: actor?.id || null,
+    excludeSocketId: actor?.socketId,
+    data: { role: serialized },
+  });
+
+  return serialized;
 };
 
 const getPermissions = async () => {
@@ -286,7 +302,29 @@ const updateRolePermissions = async ({ id, permissions }, actor) => {
     },
   });
 
-  return { success: true };
+  const detailed = await getRoleById(id);
+  const serialized = serializeValue(detailed);
+
+  emitDomainEvent("role.permissions_updated", {
+    actorUserId: actor?.id || null,
+    excludeSocketId: actor?.socketId,
+    data: {
+      role: serialized,
+      permissions: uniquePermissions,
+    },
+  });
+
+  // Alias for clients/docs that listen to role.permissions_changed
+  emitDomainEvent("role.permissions_changed", {
+    actorUserId: actor?.id || null,
+    excludeSocketId: actor?.socketId,
+    data: {
+      role: serialized,
+      permissions: uniquePermissions,
+    },
+  });
+
+  return detailed;
 };
 
 module.exports = {

@@ -52,8 +52,10 @@ export function registerRoleRealtimeHandlers(socket, queryClient) {
   )
 
   socket.on(SOCKET_EVENTS.ROLE_PERMISSIONS_UPDATED, onPermissionsUpdated)
+  socket.on(SOCKET_EVENTS.ROLE_PERMISSIONS_CHANGED, onPermissionsUpdated)
 
   return () => {
     socket.off(SOCKET_EVENTS.ROLE_PERMISSIONS_UPDATED, onPermissionsUpdated)
+    socket.off(SOCKET_EVENTS.ROLE_PERMISSIONS_CHANGED, onPermissionsUpdated)
   }
 }

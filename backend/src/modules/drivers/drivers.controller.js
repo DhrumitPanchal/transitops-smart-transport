@@ -1,5 +1,6 @@
 const { sendSuccess } = require("../../common/apiResponse");
 const driversService = require("./drivers.service");
+const { getRequestMeta } = require("../../utils/requestMeta");
 
 const getDrivers = async (req, res, next) => {
   try {
@@ -21,7 +22,11 @@ const getDriverById = async (req, res, next) => {
 
 const createDriver = async (req, res, next) => {
   try {
-    const driver = await driversService.createDriver(req.body, req.user.id);
+    const driver = await driversService.createDriver(
+      req.body,
+      req.user.id,
+      getRequestMeta(req),
+    );
     return sendSuccess(res, driver, "Driver created successfully", 201);
   } catch (error) {
     return next(error);
@@ -33,7 +38,8 @@ const updateDriver = async (req, res, next) => {
     const driver = await driversService.updateDriver(
       req.params.id,
       req.body,
-      req.user.id
+      req.user.id,
+      getRequestMeta(req),
     );
     return sendSuccess(res, driver, "Driver updated successfully", 200);
   } catch (error) {
@@ -46,7 +52,8 @@ const changeDriverStatus = async (req, res, next) => {
     const driver = await driversService.changeDriverStatus(
       req.params.id,
       req.body.status,
-      req.user.id
+      req.user.id,
+      getRequestMeta(req),
     );
     return sendSuccess(res, driver, "Driver status changed successfully", 200);
   } catch (error) {
@@ -56,7 +63,11 @@ const changeDriverStatus = async (req, res, next) => {
 
 const deleteDriver = async (req, res, next) => {
   try {
-    const result = await driversService.deleteDriver(req.params.id, req.user.id);
+    const result = await driversService.deleteDriver(
+      req.params.id,
+      req.user.id,
+      getRequestMeta(req),
+    );
     return sendSuccess(res, result, "Driver archived successfully", 200);
   } catch (error) {
     return next(error);

@@ -35,6 +35,16 @@ export function registerMaintenanceRealtimeHandlers(socket, queryClient) {
     })
   })
 
+  const onStarted = createGuardedHandler(queryClient, (client, payload) => {
+    const { maintenance, vehicle } = extractPayload(payload)
+    if (!maintenance) return
+    applyMaintenanceLifecycleToCache(client, {
+      maintenance,
+      vehicle,
+      isCreate: false,
+    })
+  })
+
   const onCompleted = createGuardedHandler(queryClient, (client, payload) => {
     const { maintenance, vehicle } = extractPayload(payload)
     if (!maintenance) return
@@ -57,12 +67,14 @@ export function registerMaintenanceRealtimeHandlers(socket, queryClient) {
 
   socket.on(SOCKET_EVENTS.MAINTENANCE_CREATED, onCreated)
   socket.on(SOCKET_EVENTS.MAINTENANCE_UPDATED, onUpdated)
+  socket.on(SOCKET_EVENTS.MAINTENANCE_STARTED, onStarted)
   socket.on(SOCKET_EVENTS.MAINTENANCE_COMPLETED, onCompleted)
   socket.on(SOCKET_EVENTS.MAINTENANCE_CANCELLED, onCancelled)
 
   return () => {
     socket.off(SOCKET_EVENTS.MAINTENANCE_CREATED, onCreated)
     socket.off(SOCKET_EVENTS.MAINTENANCE_UPDATED, onUpdated)
+    socket.off(SOCKET_EVENTS.MAINTENANCE_STARTED, onStarted)
     socket.off(SOCKET_EVENTS.MAINTENANCE_COMPLETED, onCompleted)
     socket.off(SOCKET_EVENTS.MAINTENANCE_CANCELLED, onCancelled)
   }

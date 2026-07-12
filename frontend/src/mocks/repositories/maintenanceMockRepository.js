@@ -170,17 +170,17 @@ export const maintenanceMockRepository = {
     const vehicle = db.vehicles.find((item) => item.id === payload.vehicleId)
     assertVehicleEligible(vehicle)
 
-    const status = payload.status || MAINTENANCE_STATUS.OPEN
+    const status = payload.status || MAINTENANCE_STATUS.SCHEDULED
     if (
-      ![MAINTENANCE_STATUS.OPEN, MAINTENANCE_STATUS.IN_PROGRESS].includes(
+      ![MAINTENANCE_STATUS.SCHEDULED, MAINTENANCE_STATUS.IN_PROGRESS].includes(
         status,
       )
     ) {
       throw new ApiError({
         status: 400,
         code: 'INVALID_STATUS',
-        message: 'New maintenance must be OPEN or IN_PROGRESS',
-        fieldErrors: { status: 'New maintenance must be OPEN or IN_PROGRESS' },
+        message: 'New maintenance must be SCHEDULED or IN_PROGRESS',
+        fieldErrors: { status: 'New maintenance must be SCHEDULED or IN_PROGRESS' },
       })
     }
 
@@ -213,7 +213,7 @@ export const maintenanceMockRepository = {
     const record = findMaintenanceOrThrow(id)
 
     if (
-      ![MAINTENANCE_STATUS.OPEN, MAINTENANCE_STATUS.IN_PROGRESS].includes(
+      ![MAINTENANCE_STATUS.SCHEDULED, MAINTENANCE_STATUS.IN_PROGRESS].includes(
         record.status,
       )
     ) {
@@ -247,7 +247,7 @@ export const maintenanceMockRepository = {
     const record = findMaintenanceOrThrow(id)
 
     if (
-      ![MAINTENANCE_STATUS.OPEN, MAINTENANCE_STATUS.IN_PROGRESS].includes(
+      ![MAINTENANCE_STATUS.SCHEDULED, MAINTENANCE_STATUS.IN_PROGRESS].includes(
         record.status,
       )
     ) {
@@ -291,7 +291,7 @@ export const maintenanceMockRepository = {
     const record = findMaintenanceOrThrow(id)
 
     if (
-      ![MAINTENANCE_STATUS.OPEN, MAINTENANCE_STATUS.IN_PROGRESS].includes(
+      ![MAINTENANCE_STATUS.SCHEDULED, MAINTENANCE_STATUS.IN_PROGRESS].includes(
         record.status,
       )
     ) {

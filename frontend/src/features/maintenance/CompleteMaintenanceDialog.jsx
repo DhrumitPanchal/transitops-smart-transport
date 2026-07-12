@@ -5,6 +5,7 @@ import Modal from '../../components/common/Modal'
 import Button from '../../components/common/Button'
 import DateField from '../../components/forms/DateField'
 import CurrencyField from '../../components/forms/CurrencyField'
+import TextField from '../../components/forms/TextField'
 import TextAreaField from '../../components/forms/TextAreaField'
 import InlineAlert from '../../components/feedback/InlineAlert'
 import { createMaintenanceCompletionSchema } from '../../validations/maintenanceValidation'
@@ -19,9 +20,7 @@ export default function CompleteMaintenanceDialog({
   onClose,
   onConfirm,
 }) {
-  const canComplete =
-    maintenance?.status === MAINTENANCE_STATUS.OPEN ||
-    maintenance?.status === MAINTENANCE_STATUS.IN_PROGRESS
+  const canComplete = maintenance?.status === MAINTENANCE_STATUS.IN_PROGRESS
   const dialogKey = `${maintenance?.id || 'none'}-${open ? 'open' : 'closed'}`
 
   return (
@@ -47,10 +46,7 @@ function CompleteMaintenanceForm({
   onClose,
   onConfirm,
 }) {
-  const schema = useMemo(
-    () => createMaintenanceCompletionSchema(maintenance?.startDate),
-    [maintenance?.startDate],
-  )
+  const schema = useMemo(() => createMaintenanceCompletionSchema(), [])
 
   const {
     register,
@@ -61,9 +57,10 @@ function CompleteMaintenanceForm({
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
-      completionDate: new Date().toISOString().slice(0, 10),
-      finalCost: maintenance?.cost ?? '',
-      notes: maintenance?.notes || '',
+      completedDate: new Date().toISOString().slice(0, 10),
+      actualCost: maintenance?.estimatedCost ?? maintenance?.cost ?? '',
+      nextServiceOdometer: maintenance?.nextServiceOdometer ?? '',
+      remarks: maintenance?.remarks || maintenance?.notes || '',
     },
   })
 
@@ -93,7 +90,7 @@ function CompleteMaintenanceForm({
         {maintenance ? (
           <>
             Complete maintenance for <strong>{vehicleLabel}</strong>. The
-            vehicle returns to AVAILABLE unless retired.
+            vehicle returns to AVAILABLE.
           </>
         ) : (
           'Complete this maintenance record.'
@@ -102,33 +99,40 @@ function CompleteMaintenanceForm({
 
       {!canComplete ? (
         <InlineAlert tone="warning" title="Unavailable">
-          Only open or in-progress maintenance can be completed.
+          Only IN_PROGRESS maintenance can be completed. Start the job first.
         </InlineAlert>
       ) : (
         <div className="grid gap-1 md:grid-cols-2 md:gap-x-4">
           <DateField
-            name="completionDate"
+            name="completedDate"
             label="Completion date"
             required
             disabled={loading}
-            registration={register('completionDate')}
-            error={errors.completionDate?.message}
+            registration={register('completedDate')}
+            error={errors.completedDate?.message}
           />
           <CurrencyField
-            name="finalCost"
-            label="Final cost"
+            name="actualCost"
+            label="Actual cost"
             required
             disabled={loading}
-            registration={register('finalCost')}
-            error={errors.finalCost?.message}
+            registration={register('actualCost')}
+            error={errors.actualCost?.message}
+          />
+          <TextField
+            name="nextServiceOdometer"
+            label="Next service odometer"
+            disabled={loading}
+            registration={register('nextServiceOdometer')}
+            error={errors.nextServiceOdometer?.message}
           />
           <div className="md:col-span-2">
             <TextAreaField
-              name="notes"
-              label="Notes"
+              name="remarks"
+              label="Remarks"
               disabled={loading}
-              registration={register('notes')}
-              error={errors.notes?.message}
+              registration={register('remarks')}
+              error={errors.remarks?.message}
             />
           </div>
         </div>

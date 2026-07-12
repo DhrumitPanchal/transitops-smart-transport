@@ -22,18 +22,25 @@ export default function MaintenanceSummary({ maintenance }) {
   if (!maintenance) return null
 
   const vehicle = maintenance.vehicle
+  const scheduledDate = maintenance.scheduledDate || maintenance.startDate
+  const completedDate = maintenance.completedDate || maintenance.completionDate
+  const estimatedCost = maintenance.estimatedCost ?? maintenance.cost
+  const actualCost = maintenance.actualCost ?? maintenance.finalCost
+  const serviceCenter = maintenance.serviceCenter || maintenance.vendorName
+  const remarks = maintenance.remarks || maintenance.notes
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
       <Card>
         <SectionTitle
           title="Maintenance details"
-          description="Schedule, cost, and vendor information."
+          description="Schedule, cost, and service center information."
         />
         <dl>
           <DetailItem label="Status">
             <StatusBadge status={maintenance.status} />
           </DetailItem>
+          <DetailItem label="Title">{maintenance.title || '—'}</DetailItem>
           <DetailItem label="Vehicle">
             {vehicle ? (
               <Link
@@ -53,32 +60,26 @@ export default function MaintenanceSummary({ maintenance }) {
           <DetailItem label="Description">
             {maintenance.description || '—'}
           </DetailItem>
-          <DetailItem label="Start date">
-            {formatDate(maintenance.startDate)}
+          <DetailItem label="Scheduled date">
+            {formatDate(scheduledDate)}
           </DetailItem>
-          <DetailItem label="Expected end date">
-            {formatDate(maintenance.expectedEndDate)}
-          </DetailItem>
-          <DetailItem label="Completion date">
-            {formatDate(maintenance.completionDate)}
+          <DetailItem label="Completed date">
+            {formatDate(completedDate)}
           </DetailItem>
           <DetailItem label="Estimated cost">
-            {formatCurrency(maintenance.cost)}
+            {formatCurrency(estimatedCost)}
           </DetailItem>
-          <DetailItem label="Final cost">
-            {formatCurrency(maintenance.finalCost)}
+          <DetailItem label="Actual cost">
+            {formatCurrency(actualCost)}
           </DetailItem>
-          <DetailItem label="Vendor">
-            {maintenance.vendorName || '—'}
+          <DetailItem label="Service center">{serviceCenter || '—'}</DetailItem>
+          <DetailItem label="Current odometer">
+            {maintenance.currentOdometer ?? '—'}
           </DetailItem>
-          <DetailItem label="Notes">
-            {maintenance.notes || '—'}
+          <DetailItem label="Next service odometer">
+            {maintenance.nextServiceOdometer ?? '—'}
           </DetailItem>
-          {maintenance.cancelReason ? (
-            <DetailItem label="Cancellation reason">
-              {maintenance.cancelReason}
-            </DetailItem>
-          ) : null}
+          <DetailItem label="Remarks">{remarks || '—'}</DetailItem>
         </dl>
       </Card>
 
@@ -99,21 +100,12 @@ export default function MaintenanceSummary({ maintenance }) {
               {formatDateTime(maintenance.updatedAt)}
             </p>
           </li>
-          {maintenance.completedAt ? (
-            <li className="relative border-l border-slate-200 pl-4 pb-4 last:pb-0">
+          {completedDate ? (
+            <li className="relative border-l border-slate-200 pl-4 pb-0">
               <span className="absolute -left-1.5 top-1 h-3 w-3 rounded-full bg-slate-300" />
               <p className="text-sm font-medium text-slate-800">Completed</p>
               <p className="text-xs text-slate-500">
-                {formatDateTime(maintenance.completedAt)}
-              </p>
-            </li>
-          ) : null}
-          {maintenance.cancelledAt ? (
-            <li className="relative border-l border-slate-200 pl-4 pb-0">
-              <span className="absolute -left-1.5 top-1 h-3 w-3 rounded-full bg-slate-300" />
-              <p className="text-sm font-medium text-slate-800">Cancelled</p>
-              <p className="text-xs text-slate-500">
-                {formatDateTime(maintenance.cancelledAt)}
+                {formatDateTime(completedDate)}
               </p>
             </li>
           ) : null}

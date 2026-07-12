@@ -50,7 +50,7 @@ router.post(
   permissionMiddleware("maintenance.create"),
   [
     body("vehicleId").notEmpty().isUUID(),
-    body("type").notEmpty().isIn([
+    body("maintenanceType").notEmpty().isIn([
       "PREVENTIVE",
       "CORRECTIVE",
       "INSPECTION",
@@ -80,7 +80,7 @@ router.put(
   [
     param("id").isUUID(),
     body("vehicleId").optional().isUUID(),
-    body("type").optional().isIn([
+    body("maintenanceType").optional().isIn([
       "PREVENTIVE",
       "CORRECTIVE",
       "INSPECTION",

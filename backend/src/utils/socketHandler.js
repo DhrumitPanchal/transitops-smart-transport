@@ -17,7 +17,6 @@ const ROLE_ROOMS = {
 
 const handleSocketConnection = async (socket) => {
   const userId = socket.user.id;
-  const roleId = socket.user.roleId;
 
   try {
     const user = await prisma.user.findUnique({
@@ -26,7 +25,15 @@ const handleSocketConnection = async (socket) => {
     });
 
     if (!user) {
+      socket.emit("unauthorized", { message: "Unauthorized" });
       socket.emit("socket.error", { message: "User not found" });
+      socket.disconnect();
+      return;
+    }
+
+    if (user.status !== "ACTIVE") {
+      socket.emit("unauthorized", { message: "Unauthorized" });
+      socket.emit("socket.error", { message: "Account is inactive" });
       socket.disconnect();
       return;
     }
@@ -38,7 +45,7 @@ const handleSocketConnection = async (socket) => {
 
     socket.join(`user:${userId}`);
 
-    console.log(`User ${userId} connected. Rooms: ${roleRoom}, user:${userId}`);
+    console.log(`User ${userId} connected. Rooms: ${roleRoom || "none"}, user:${userId}`);
 
     socket.on("disconnect", () => {
       console.log(`User ${userId} disconnected`);

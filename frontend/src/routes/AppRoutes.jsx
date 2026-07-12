@@ -10,6 +10,7 @@ import { ROUTES } from '../constants/routes'
 import { PERMISSIONS } from '../constants/permissions'
 import { ROLES } from '../constants/roles'
 import { useAuth } from '../hooks/useAuth'
+import { isMockMode } from '../services/serviceMode'
 
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'))
 const RegisterPage = lazy(() => import('../pages/auth/RegisterPage'))
@@ -68,6 +69,8 @@ const ProfilePage = lazy(() => import('../pages/profile/ProfilePage'))
 const UnauthorizedPage = lazy(() => import('../pages/UnauthorizedPage'))
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
 
+const mocksEnabled = isMockMode()
+
 function RootRedirect() {
   const { isAuthenticated, isInitializing, landingRoute } = useAuth()
 
@@ -89,7 +92,9 @@ export default function AppRoutes() {
         <Route element={<PublicOnlyRoute />}>
           <Route element={<AuthLayout />}>
             <Route path={ROUTES.LOGIN} element={<LoginPage />} />
-            <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
+            {mocksEnabled ? (
+              <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
+            ) : null}
           </Route>
         </Route>
 
@@ -301,30 +306,34 @@ export default function AppRoutes() {
               />
             </Route>
 
-            <Route
-              element={
-                <PermissionRoute
-                  permission={PERMISSIONS.USERS_CREATE}
-                  roles={[ROLES.SUPER_ADMIN]}
-                />
-              }
-            >
+            {mocksEnabled ? (
               <Route
-                path={ROUTES.ADMIN_USERS_NEW}
-                element={<UserCreatePage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <PermissionRoute
-                  permission={PERMISSIONS.USERS_EDIT}
-                  roles={[ROLES.SUPER_ADMIN]}
+                element={
+                  <PermissionRoute
+                    permission={PERMISSIONS.USERS_CREATE}
+                    roles={[ROLES.SUPER_ADMIN]}
+                  />
+                }
+              >
+                <Route
+                  path={ROUTES.ADMIN_USERS_NEW}
+                  element={<UserCreatePage />}
                 />
-              }
-            >
-              <Route path={ROUTES.ADMIN_USER_EDIT} element={<UserEditPage />} />
-            </Route>
+              </Route>
+            ) : null}
+
+            {mocksEnabled ? (
+              <Route
+                element={
+                  <PermissionRoute
+                    permission={PERMISSIONS.USERS_EDIT}
+                    roles={[ROLES.SUPER_ADMIN]}
+                  />
+                }
+              >
+                <Route path={ROUTES.ADMIN_USER_EDIT} element={<UserEditPage />} />
+              </Route>
+            ) : null}
 
             <Route
               element={

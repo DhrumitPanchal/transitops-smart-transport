@@ -1,39 +1,82 @@
-import { keysToCamelCase, keysToSnakeCase } from './caseMapper'
+import { keysToCamelCase } from './caseMapper'
 
 /**
- * Map a backend response envelope (and nested entities) to frontend camelCase.
+ * Backend uses camelCase. Keep payloads as-is (no snake_case conversion).
  */
 export function fromApiEnvelope(payload) {
   if (payload == null) return payload
   return keysToCamelCase(payload)
 }
 
-/**
- * Map frontend body to backend snake_case JSON.
- */
 export function toApiBody(payload) {
   if (payload == null) return payload
-  return keysToSnakeCase(payload)
+  return payload
 }
 
 /**
- * Map frontend query params to backend snake_case.
+ * Map frontend list params to backend query shape.
+ * pageSize → limit, sortDirection → sortOrder
  */
 export function toApiParams(params = {}) {
   if (!params || typeof params !== 'object') return params
-  return keysToSnakeCase(params)
+
+  const next = { ...params }
+
+  if (next.pageSize != null && next.limit == null) {
+    next.limit = next.pageSize
+  }
+  delete next.pageSize
+
+  if (next.sortDirection != null && next.sortOrder == null) {
+    next.sortOrder = next.sortDirection
+  }
+  delete next.sortDirection
+
+  Object.keys(next).forEach((key) => {
+    if (next[key] === undefined || next[key] === '') {
+      delete next[key]
+    }
+  })
+
+  return next
 }
 
-/**
- * Normalize fieldErrors object keys to camelCase for RHF setError.
- */
 export function fieldErrorsFromApi(fieldErrors) {
   if (!fieldErrors || typeof fieldErrors !== 'object') return null
   return keysToCamelCase(fieldErrors)
 }
 
 /**
+ * Convert express-validator `details` array into a fieldErrors map.
+ */
+export function fieldErrorsFromDetails(details) {
+  if (!Array.isArray(details) || details.length === 0) return null
+
+  return details.reduce((acc, item) => {
+    const field = item?.path || item?.param
+    if (!field || acc[field]) return acc
+    acc[field] = item.msg || item.message || 'Invalid value'
+    return acc
+  }, {})
+}
+
+function normalizePagination(pagination) {
+  if (!pagination || typeof pagination !== 'object') return pagination
+
+  return {
+    ...pagination,
+    page: pagination.page,
+    pageSize: pagination.pageSize ?? pagination.limit,
+    limit: pagination.limit ?? pagination.pageSize,
+    totalItems: pagination.totalItems ?? pagination.totalRecords,
+    totalRecords: pagination.totalRecords ?? pagination.totalItems,
+    totalPages: pagination.totalPages,
+  }
+}
+
+/**
  * Unwrap `{ data }` list/detail payloads after camelCase mapping.
+ * Supports backend `{ data: { items, pagination } }` and mock `{ data: [] }`.
  */
 export function mapListResponse(payload, mapItem = (item) => item) {
   const mapped = fromApiEnvelope(payload)
@@ -47,9 +90,13 @@ export function mapListResponse(payload, mapItem = (item) => item) {
       ? mapped.data.items
       : []
 
+  const rawPagination =
+    mapped.data?.pagination ?? mapped.pagination ?? undefined
+
   return {
     ...mapped,
     data: items.map((item) => mapItem(item)),
+    pagination: normalizePagination(rawPagination),
   }
 }
 
@@ -69,10 +116,6 @@ export function mapSingleResponse(payload, mapItem = (item) => item) {
   return { data: mapItem(mapped) }
 }
 
-/**
- * Map lifecycle mutation envelopes that nest multiple entities under data.
- * Leaves unknown keys intact after camelCase conversion.
- */
 export function mapLifecycleResponse(payload, entityMappers = {}) {
   const mapped = fromApiEnvelope(payload)
   if (!mapped?.data || typeof mapped.data !== 'object') {

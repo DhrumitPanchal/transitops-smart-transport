@@ -58,7 +58,22 @@ export async function retire(id) {
     return vehicleMockRepository.retire(id)
   }
 
-  const { data } = await apiClient.patch(ENDPOINTS.VEHICLES.RETIRE(id))
+  const { data } = await apiClient.patch(ENDPOINTS.VEHICLES.STATUS(id), {
+    status: 'RETIRED',
+  })
+  return fromApiDetail(data)
+}
+
+export async function changeStatus(id, status) {
+  if (isMockMode()) {
+    return vehicleMockRepository.retire
+      ? vehicleMockRepository.update(id, { status })
+      : null
+  }
+
+  const { data } = await apiClient.patch(ENDPOINTS.VEHICLES.STATUS(id), {
+    status,
+  })
   return fromApiDetail(data)
 }
 
@@ -68,7 +83,7 @@ export async function getAvailable(params = {}) {
   }
 
   const { data } = await apiClient.get(ENDPOINTS.VEHICLES.AVAILABLE, {
-    params: toApiQuery(params),
+    params: toApiQuery({ ...params, status: 'AVAILABLE' }),
   })
   return fromApiList(data)
 }

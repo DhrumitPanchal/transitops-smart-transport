@@ -71,7 +71,7 @@ export const VALIDATION_MESSAGES = {
   END_DATE_BEFORE_START: 'Expected end date cannot be before start date',
   COST_MIN: 'Cost must be zero or greater',
   COST_POSITIVE: 'Cost must be greater than 0',
-  MAINTENANCE_STATUS_NEW: 'New maintenance must be OPEN or IN_PROGRESS',
+  MAINTENANCE_STATUS_NEW: 'New maintenance must be SCHEDULED',
   COMPLETION_DATE_REQUIRED: 'Completion date is required',
   COMPLETION_DATE_BEFORE_START:
     'Completion date cannot be before start date',

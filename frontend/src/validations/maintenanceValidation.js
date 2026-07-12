@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { MAINTENANCE_TYPES } from '../constants/appConstants'
-import { MAINTENANCE_CREATE_STATUSES } from '../constants/formOptions'
 import { VALIDATION_MESSAGES } from '../constants/validationMessages'
 import {
   dateField,
@@ -10,85 +9,82 @@ import {
   trimmedText,
 } from './common'
 
-function isBeforeDate(left, right) {
-  if (!left || !right) return false
-  return new Date(left).getTime() < new Date(right).getTime()
-}
-
-export const maintenanceSchema = z
-  .object({
-    vehicleId: trimmedText({
-      requiredMessage: VALIDATION_MESSAGES.VEHICLE_REQUIRED,
-    }),
-    maintenanceType: oneOfEnum(
-      Object.values(MAINTENANCE_TYPES),
-      VALIDATION_MESSAGES.MAINTENANCE_TYPE_REQUIRED,
-    ),
-    description: trimmedText({
-      min: 3,
-      max: 500,
-      requiredMessage: VALIDATION_MESSAGES.DESCRIPTION_REQUIRED,
-      minMessage: VALIDATION_MESSAGES.DESCRIPTION_LENGTH,
-      maxMessage: VALIDATION_MESSAGES.DESCRIPTION_LENGTH,
-    }),
-    startDate: dateField({
-      requiredMessage: VALIDATION_MESSAGES.START_DATE_REQUIRED,
-    }),
-    expectedEndDate: dateField({
-      requiredMessage: VALIDATION_MESSAGES.EXPECTED_END_DATE_REQUIRED,
-    }),
-    cost: numberField({
+export const maintenanceSchema = z.object({
+  vehicleId: trimmedText({
+    requiredMessage: VALIDATION_MESSAGES.VEHICLE_REQUIRED,
+  }),
+  maintenanceType: oneOfEnum(
+    Object.values(MAINTENANCE_TYPES),
+    VALIDATION_MESSAGES.MAINTENANCE_TYPE_REQUIRED,
+  ),
+  title: trimmedText({
+    min: 2,
+    max: 120,
+    requiredMessage: 'Title is required',
+    minMessage: 'Title must be at least 2 characters',
+    maxMessage: 'Title must be at most 120 characters',
+  }),
+  description: optionalText({ max: 500 }),
+  serviceCenter: trimmedText({
+    min: 2,
+    max: 120,
+    requiredMessage: 'Service center is required',
+    minMessage: 'Service center must be at least 2 characters',
+    maxMessage: 'Service center must be at most 120 characters',
+  }),
+  scheduledDate: dateField({
+    requiredMessage: VALIDATION_MESSAGES.START_DATE_REQUIRED,
+  }),
+  estimatedCost: numberField({
+    min: 0,
+    requiredMessage: VALIDATION_MESSAGES.COST_MIN,
+    minMessage: VALIDATION_MESSAGES.COST_MIN,
+  }),
+  currentOdometer: numberField({
+    min: 0,
+    requiredMessage: 'Current odometer is required',
+    minMessage: 'Current odometer cannot be negative',
+  }),
+  nextServiceOdometer: z.preprocess(
+    (value) => (value === '' || value == null ? undefined : value),
+    numberField({
       min: 0,
-      requiredMessage: VALIDATION_MESSAGES.COST_MIN,
-      minMessage: VALIDATION_MESSAGES.COST_MIN,
-    }),
-    vendorName: optionalText({ max: 100 }),
-    notes: optionalText({ max: 500 }),
-    status: oneOfEnum(
-      MAINTENANCE_CREATE_STATUSES,
-      VALIDATION_MESSAGES.MAINTENANCE_STATUS_NEW,
-    ),
-  })
-  .superRefine((values, ctx) => {
-    if (
-      values.startDate &&
-      values.expectedEndDate &&
-      isBeforeDate(values.expectedEndDate, values.startDate)
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['expectedEndDate'],
-        message: VALIDATION_MESSAGES.END_DATE_BEFORE_START,
-      })
-    }
-  })
-
-export function createMaintenanceCompletionSchema(startDate) {
-  return z.object({
-    completionDate: dateField({
-      requiredMessage: VALIDATION_MESSAGES.COMPLETION_DATE_REQUIRED,
-    }).refine(
-      (value) => {
-        if (!startDate || !value) return true
-        return !isBeforeDate(value, startDate)
-      },
-      { message: VALIDATION_MESSAGES.COMPLETION_DATE_BEFORE_START },
-    ),
-    finalCost: numberField({
-      min: 0,
-      requiredMessage: VALIDATION_MESSAGES.FINAL_COST_MIN,
-      minMessage: VALIDATION_MESSAGES.FINAL_COST_MIN,
-    }),
-    notes: optionalText({ max: 500 }),
-  })
-}
+      requiredMessage: 'Next service odometer is invalid',
+      minMessage: 'Next service odometer cannot be negative',
+    }).optional(),
+  ),
+  remarks: optionalText({ max: 500 }),
+  status: z.literal('SCHEDULED').optional(),
+})
 
 export const maintenanceCancellationSchema = z.object({
   reason: trimmedText({
     min: 3,
     max: 500,
-    requiredMessage: VALIDATION_MESSAGES.CANCEL_REASON_REQUIRED,
-    minMessage: VALIDATION_MESSAGES.CANCEL_REASON_LENGTH,
-    maxMessage: VALIDATION_MESSAGES.CANCEL_REASON_LENGTH,
+    requiredMessage: VALIDATION_MESSAGES.CANCEL_REASON_REQUIRED || 'Reason is required',
+    minMessage: 'Reason must be at least 3 characters',
+    maxMessage: 'Reason must be at most 500 characters',
   }),
 })
+
+export function createMaintenanceCompletionSchema() {
+  return z.object({
+    actualCost: numberField({
+      min: 0,
+      requiredMessage: VALIDATION_MESSAGES.COST_MIN,
+      minMessage: VALIDATION_MESSAGES.COST_MIN,
+    }),
+    completedDate: dateField({
+      requiredMessage: VALIDATION_MESSAGES.EXPECTED_END_DATE_REQUIRED,
+    }),
+    nextServiceOdometer: z.preprocess(
+      (value) => (value === '' || value == null ? undefined : value),
+      numberField({
+        min: 0,
+        requiredMessage: 'Next service odometer is invalid',
+        minMessage: 'Next service odometer cannot be negative',
+      }).optional(),
+    ),
+    remarks: optionalText({ max: 500 }),
+  })
+}

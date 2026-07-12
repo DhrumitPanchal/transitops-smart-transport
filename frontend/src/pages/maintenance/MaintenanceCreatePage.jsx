@@ -29,7 +29,7 @@ export default function MaintenanceCreatePage() {
     <PageContainer maxWidth="lg">
       <PageHeader
         title="Schedule maintenance"
-        description="OPEN or IN_PROGRESS work places the vehicle IN_SHOP and removes it from trip availability."
+        description="Creates a SCHEDULED maintenance record. Starting it later moves the vehicle to IN_SHOP."
       />
       <MaintenanceForm
         defaultValues={DEFAULT_MAINTENANCE_FORM_VALUES}

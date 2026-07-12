@@ -19,13 +19,17 @@ function toFormValues(record) {
   return {
     vehicleId: record.vehicleId || '',
     maintenanceType: record.maintenanceType || '',
+    title: record.title || '',
     description: record.description || '',
-    startDate: record.startDate || '',
-    expectedEndDate: record.expectedEndDate || '',
-    cost: record.cost ?? '',
-    vendorName: record.vendorName || '',
-    notes: record.notes || '',
-    status: record.status || MAINTENANCE_STATUS.OPEN,
+    serviceCenter: record.serviceCenter || '',
+    scheduledDate: record.scheduledDate
+      ? String(record.scheduledDate).slice(0, 10)
+      : '',
+    estimatedCost: record.estimatedCost ?? '',
+    currentOdometer: record.currentOdometer ?? '',
+    nextServiceOdometer: record.nextServiceOdometer ?? '',
+    remarks: record.remarks || '',
+    status: record.status || MAINTENANCE_STATUS.SCHEDULED,
   }
 }
 
@@ -66,7 +70,7 @@ export default function MaintenanceEditPage() {
   }
 
   const isEditable =
-    record.status === MAINTENANCE_STATUS.OPEN ||
+    record.status === MAINTENANCE_STATUS.SCHEDULED ||
     record.status === MAINTENANCE_STATUS.IN_PROGRESS
 
   if (!isEditable) {

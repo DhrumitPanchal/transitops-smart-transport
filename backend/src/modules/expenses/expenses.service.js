@@ -3,6 +3,7 @@ const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { env } = require("../../config");
 const AppError = require("../../common/AppError");
+const { emitDomainEvent, serializeValue } = require("../../utils/socketEmitter");
 
 const pool = new Pool({ connectionString: env.databaseUrl });
 const adapter = new PrismaPg(pool);
@@ -129,7 +130,7 @@ const getExpenseById = async (id) => {
   return expense;
 };
 
-const createExpense = async (data, userId) => {
+const createExpense = async (data, userId, meta = {}) => {
   const {
     vehicleId,
     driverId,
@@ -205,10 +206,20 @@ const createExpense = async (data, userId) => {
     },
   });
 
-  return expense;
+  emitDomainEvent("expense.created", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { expense: serializeValue(expense) },
+    dashboardChanges: {
+      expenses: Number(amount) || 0,
+      totalOperationalCost: Number(amount) || 0,
+    },
+  });
+
+  return serializeValue(expense);
 };
 
-const updateExpense = async (id, data, userId) => {
+const updateExpense = async (id, data, userId, meta = {}) => {
   const expense = await prisma.expense.findUnique({
     where: { id, isDeleted: false },
   });
@@ -243,10 +254,16 @@ const updateExpense = async (id, data, userId) => {
     },
   });
 
-  return updatedExpense;
+  emitDomainEvent("expense.updated", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { expense: serializeValue(updatedExpense) },
+  });
+
+  return serializeValue(updatedExpense);
 };
 
-const deleteExpense = async (id, userId) => {
+const deleteExpense = async (id, userId, meta = {}) => {
   const expense = await prisma.expense.findUnique({
     where: { id, isDeleted: false },
   });
@@ -271,6 +288,12 @@ const deleteExpense = async (id, userId) => {
       recordId: expense.id,
       oldValue,
     },
+  });
+
+  emitDomainEvent("expense.deleted", {
+    actorUserId: userId,
+    excludeSocketId: meta.socketId,
+    data: { id: expense.id, expense: serializeValue({ ...expense, isDeleted: true }) },
   });
 
   return { message: "Expense archived successfully" };

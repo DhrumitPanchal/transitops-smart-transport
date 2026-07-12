@@ -34,9 +34,20 @@ export async function updatePermissions(id, permissions) {
     return roleMockRepository.updatePermissions(id, permissions)
   }
 
-  const { data } = await apiClient.put(
+  await apiClient.put(
     ENDPOINTS.ROLES.PERMISSIONS(id),
     toApiRequest({ permissions }),
   )
-  return fromApiDetail(data)
+
+  // Backend returns data: null — refetch role for updated permissions.
+  return getById(id)
+}
+
+export async function listPermissionsCatalog() {
+  if (isMockMode()) {
+    return { data: [] }
+  }
+
+  const { data } = await apiClient.get(ENDPOINTS.ROLES.PERMISSIONS_CATALOG)
+  return data
 }

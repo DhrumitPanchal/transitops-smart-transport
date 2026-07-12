@@ -15,16 +15,20 @@ export const DRIVER_STATUS = {
 export const TRIP_STATUS = {
   DRAFT: 'DRAFT',
   DISPATCHED: 'DISPATCHED',
+  IN_PROGRESS: 'IN_PROGRESS',
   COMPLETED: 'COMPLETED',
   CANCELLED: 'CANCELLED',
 }
 
 export const MAINTENANCE_STATUS = {
-  OPEN: 'OPEN',
+  SCHEDULED: 'SCHEDULED',
   IN_PROGRESS: 'IN_PROGRESS',
   COMPLETED: 'COMPLETED',
   CANCELLED: 'CANCELLED',
 }
+
+/** @deprecated Use MAINTENANCE_STATUS.SCHEDULED — kept for mock migration compatibility */
+export const MAINTENANCE_STATUS_OPEN_ALIAS = MAINTENANCE_STATUS.SCHEDULED
 
 export const USER_STATUS = {
   PENDING: 'PENDING',
@@ -45,10 +49,11 @@ export const STATUS_LABELS = {
 
   [TRIP_STATUS.DRAFT]: 'Draft',
   [TRIP_STATUS.DISPATCHED]: 'Dispatched',
+  [TRIP_STATUS.IN_PROGRESS]: 'In Progress',
   [TRIP_STATUS.COMPLETED]: 'Completed',
   [TRIP_STATUS.CANCELLED]: 'Cancelled',
 
-  [MAINTENANCE_STATUS.OPEN]: 'Open',
+  [MAINTENANCE_STATUS.SCHEDULED]: 'Scheduled',
   [MAINTENANCE_STATUS.IN_PROGRESS]: 'In Progress',
   [MAINTENANCE_STATUS.COMPLETED]: 'Completed',
   [MAINTENANCE_STATUS.CANCELLED]: 'Cancelled',
@@ -88,3 +93,8 @@ export const USER_STATUS_OPTIONS = Object.values(USER_STATUS).map((value) => ({
   value,
   label: STATUS_LABELS[value],
 }))
+
+/** Backend UserStatus is ACTIVE | INACTIVE only. */
+export const USER_STATUS_OPTIONS_API = USER_STATUS_OPTIONS.filter(
+  (option) => option.value !== USER_STATUS.PENDING,
+)

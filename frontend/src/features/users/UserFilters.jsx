@@ -1,12 +1,25 @@
 import FilterBar from '../../components/tables/FilterBar'
 import SearchInput from '../../components/tables/SearchInput'
 import { ROLE_OPTIONS } from '../../constants/roles'
-import { USER_STATUS_OPTIONS } from '../../constants/statuses'
+import {
+  USER_STATUS_OPTIONS,
+  USER_STATUS_OPTIONS_API,
+} from '../../constants/statuses'
+import { isMockMode } from '../../services/serviceMode'
 
 const selectClassName =
   'rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100'
 
-export default function UserFilters({ filters, onChange, onReset }) {
+export default function UserFilters({
+  filters,
+  onChange,
+  onReset,
+  roleOptions = ROLE_OPTIONS,
+}) {
+  const statusOptions = isMockMode()
+    ? USER_STATUS_OPTIONS
+    : USER_STATUS_OPTIONS_API
+
   const update = (key, value) => {
     onChange?.({
       ...filters,
@@ -40,7 +53,7 @@ export default function UserFilters({ filters, onChange, onReset }) {
           onChange={(event) => update('role', event.target.value)}
         >
           <option value="">All roles</option>
-          {ROLE_OPTIONS.map((option) => (
+          {roleOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -59,7 +72,7 @@ export default function UserFilters({ filters, onChange, onReset }) {
           onChange={(event) => update('status', event.target.value)}
         >
           <option value="">All statuses</option>
-          {USER_STATUS_OPTIONS.map((option) => (
+          {statusOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

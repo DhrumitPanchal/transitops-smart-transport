@@ -1,5 +1,6 @@
 const { sendSuccess } = require("../../common/apiResponse");
 const expensesService = require("./expenses.service");
+const { getRequestMeta } = require("../../utils/requestMeta");
 
 const getExpenses = async (req, res, next) => {
   try {
@@ -21,7 +22,11 @@ const getExpenseById = async (req, res, next) => {
 
 const createExpense = async (req, res, next) => {
   try {
-    const expense = await expensesService.createExpense(req.body, req.user.id);
+    const expense = await expensesService.createExpense(
+      req.body,
+      req.user.id,
+      getRequestMeta(req),
+    );
     return sendSuccess(res, expense, "Expense created successfully", 201);
   } catch (error) {
     return next(error);
@@ -30,7 +35,12 @@ const createExpense = async (req, res, next) => {
 
 const updateExpense = async (req, res, next) => {
   try {
-    const expense = await expensesService.updateExpense(req.params.id, req.body, req.user.id);
+    const expense = await expensesService.updateExpense(
+      req.params.id,
+      req.body,
+      req.user.id,
+      getRequestMeta(req),
+    );
     return sendSuccess(res, expense, "Expense updated successfully", 200);
   } catch (error) {
     return next(error);
@@ -39,7 +49,11 @@ const updateExpense = async (req, res, next) => {
 
 const deleteExpense = async (req, res, next) => {
   try {
-    const result = await expensesService.deleteExpense(req.params.id, req.user.id);
+    const result = await expensesService.deleteExpense(
+      req.params.id,
+      req.user.id,
+      getRequestMeta(req),
+    );
     return sendSuccess(res, result, "Expense archived successfully", 200);
   } catch (error) {
     return next(error);

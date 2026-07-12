@@ -15,6 +15,7 @@ import {
   useChangeUserStatus,
   useApproveUser,
 } from '../../hooks/users'
+import { useRoles } from '../../hooks/roles'
 import { useAuth } from '../../hooks/useAuth'
 import { getUserErrorMessage } from '../../features/users/userErrors'
 import { PERMISSIONS } from '../../constants/permissions'
@@ -22,6 +23,7 @@ import { ROUTES } from '../../constants/routes'
 import { USER_STATUS } from '../../constants/statuses'
 import { DEFAULT_PAGE_SIZE } from '../../constants/appConstants'
 import { useDisclosure } from '../../hooks/useDisclosure'
+import { isMockMode } from '../../services/serviceMode'
 
 const INITIAL_FILTERS = {
   search: '',
@@ -33,20 +35,8 @@ const INITIAL_FILTERS = {
   pageSize: DEFAULT_PAGE_SIZE,
 }
 
-function cleanParams(filters) {
-  const params = {
-    page: filters.page || 1,
-    pageSize: filters.pageSize || DEFAULT_PAGE_SIZE,
-    sortBy: filters.sortBy || 'name',
-    sortDirection: filters.sortDirection || 'asc',
-  }
-  if (filters.search?.trim()) params.search = filters.search.trim()
-  if (filters.role) params.role = filters.role
-  if (filters.status) params.status = filters.status
-  return params
-}
-
 export default function UserListPage() {
+  const mocksEnabled = isMockMode()
   const { user: currentUser } = useAuth()
   const [filters, setFilters] = useState(INITIAL_FILTERS)
   const [selectedUser, setSelectedUser] = useState(null)
@@ -57,7 +47,42 @@ export default function UserListPage() {
   const statusMutation = useChangeUserStatus()
   const approveMutation = useApproveUser()
 
-  const queryParams = useMemo(() => cleanParams(filters), [filters])
+  const rolesQuery = useRoles(
+    { page: 1, pageSize: 100 },
+    { enabled: !mocksEnabled },
+  )
+  const roleRows = rolesQuery.data?.data || []
+
+  const roleCodeToId = useMemo(() => {
+    const map = {}
+    roleRows.forEach((role) => {
+      const code = role.key || role.code
+      if (code && role.id) map[code] = role.id
+    })
+    return map
+  }, [roleRows])
+
+  const queryParams = useMemo(() => {
+    const params = {
+      page: filters.page || 1,
+      pageSize: filters.pageSize || DEFAULT_PAGE_SIZE,
+      sortBy: filters.sortBy || 'name',
+      sortDirection: filters.sortDirection || 'asc',
+    }
+    if (filters.search?.trim()) params.search = filters.search.trim()
+    if (filters.status) params.status = filters.status
+
+    if (filters.role) {
+      if (mocksEnabled) {
+        params.role = filters.role
+      } else if (roleCodeToId[filters.role]) {
+        params.roleId = roleCodeToId[filters.role]
+      }
+    }
+
+    return params
+  }, [filters, mocksEnabled, roleCodeToId])
+
   const usersQuery = useUsers(queryParams)
 
   const rows = usersQuery.data?.data || []
@@ -86,12 +111,14 @@ export default function UserListPage() {
   }
 
   const openStatus = (record) => {
+    if (!mocksEnabled) return
     setSelectedUser(record)
     setActionError(null)
     statusDialog.open()
   }
 
   const openApprove = (record) => {
+    if (!mocksEnabled) return
     setSelectedUser(record)
     setActionError(null)
     approveDialog.open()
@@ -154,13 +181,19 @@ export default function UserListPage() {
     <PageContainer>
       <PageHeader
         title="Users"
-        description="Review pending registrations, create accounts, and manage ACTIVE / INACTIVE access. Users are never permanently deleted."
+        description={
+          mocksEnabled
+            ? 'Review pending registrations, create accounts, and manage ACTIVE / INACTIVE access. Users are never permanently deleted.'
+            : 'Browse users from the API. Create, edit, approve, and status changes are not available until those backend endpoints exist.'
+        }
         actions={
-          <PermissionGate permission={PERMISSIONS.USERS_CREATE}>
-            <Link to={ROUTES.ADMIN_USERS_NEW}>
-              <Button icon={Plus}>Add user</Button>
-            </Link>
-          </PermissionGate>
+          mocksEnabled ? (
+            <PermissionGate permission={PERMISSIONS.USERS_CREATE}>
+              <Link to={ROUTES.ADMIN_USERS_NEW}>
+                <Button icon={Plus}>Add user</Button>
+              </Link>
+            </PermissionGate>
+          ) : null
         }
       />
 
@@ -180,44 +213,51 @@ export default function UserListPage() {
         sortDirection={filters.sortDirection}
         onSortChange={handleSortChange}
         page={pagination.page}
-        pageSize={pagination.pageSize}
-        total={pagination.totalItems}
+        pageSize={pagination.pageSize || filters.pageSize}
+        total={pagination.totalItems || 0}
         onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
         onPageSizeChange={(pageSize) =>
           setFilters((prev) => ({ ...prev, pageSize, page: 1 }))
         }
+        allowMutations={mocksEnabled}
         onChangeStatus={openStatus}
         onApprove={openApprove}
         emptyAction={
-          <PermissionGate permission={PERMISSIONS.USERS_CREATE}>
-            <Link to={ROUTES.ADMIN_USERS_NEW}>
-              <Button icon={Plus} variant="secondary">
-                Add user
-              </Button>
-            </Link>
-          </PermissionGate>
+          mocksEnabled ? (
+            <PermissionGate permission={PERMISSIONS.USERS_CREATE}>
+              <Link to={ROUTES.ADMIN_USERS_NEW}>
+                <Button icon={Plus} variant="secondary">
+                  Add user
+                </Button>
+              </Link>
+            </PermissionGate>
+          ) : null
         }
       />
 
-      <ChangeUserStatusDialog
-        open={statusDialog.isOpen}
-        user={selectedUser}
-        currentUserId={currentUser?.id}
-        loading={statusMutation.isPending}
-        errorMessage={actionError}
-        onClose={closeStatus}
-        onConfirm={handleStatusChange}
-      />
+      {mocksEnabled ? (
+        <>
+          <ChangeUserStatusDialog
+            open={statusDialog.isOpen}
+            user={selectedUser}
+            currentUserId={currentUser?.id}
+            loading={statusMutation.isPending}
+            errorMessage={actionError}
+            onClose={closeStatus}
+            onConfirm={handleStatusChange}
+          />
 
-      <ApproveUserDialog
-        open={approveDialog.isOpen}
-        user={selectedUser}
-        currentUserId={currentUser?.id}
-        loading={approveMutation.isPending}
-        errorMessage={actionError}
-        onClose={closeApprove}
-        onConfirm={handleApprove}
-      />
+          <ApproveUserDialog
+            open={approveDialog.isOpen}
+            user={selectedUser}
+            currentUserId={currentUser?.id}
+            loading={approveMutation.isPending}
+            errorMessage={actionError}
+            onClose={closeApprove}
+            onConfirm={handleApprove}
+          />
+        </>
+      ) : null}
     </PageContainer>
   )
 }

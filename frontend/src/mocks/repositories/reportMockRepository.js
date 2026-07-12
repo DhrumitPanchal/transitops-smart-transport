@@ -200,7 +200,7 @@ function buildSummary(filters = {}) {
     },
     maintenance: {
       open: maintenance.filter((item) =>
-        [MAINTENANCE_STATUS.OPEN, MAINTENANCE_STATUS.IN_PROGRESS].includes(
+        [MAINTENANCE_STATUS.SCHEDULED, MAINTENANCE_STATUS.IN_PROGRESS].includes(
           item.status,
         ),
       ).length,

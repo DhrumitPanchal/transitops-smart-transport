@@ -2,7 +2,6 @@ import { z } from 'zod'
 import { VALIDATION_MESSAGES } from '../constants/validationMessages'
 import {
   emailField,
-  passwordField,
   toLowerEmail,
   trimString,
   trimmedText,
@@ -10,7 +9,14 @@ import {
 
 export const loginSchema = z.object({
   email: emailField,
-  password: passwordField,
+  // Backend POST /auth/login requires min 8 characters.
+  password: z.preprocess(
+    trimString,
+    z
+      .string()
+      .min(1, VALIDATION_MESSAGES.PASSWORD_REQUIRED)
+      .min(8, 'Password must be at least 8 characters'),
+  ),
 })
 
 export const registerSchema = z

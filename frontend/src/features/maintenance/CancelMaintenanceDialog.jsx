@@ -17,9 +17,7 @@ export default function CancelMaintenanceDialog({
   onClose,
   onConfirm,
 }) {
-  const canCancel =
-    maintenance?.status === MAINTENANCE_STATUS.OPEN ||
-    maintenance?.status === MAINTENANCE_STATUS.IN_PROGRESS
+  const canCancel = maintenance?.status === MAINTENANCE_STATUS.SCHEDULED
   const dialogKey = `${maintenance?.id || 'none'}-${open ? 'open' : 'closed'}`
 
   return (

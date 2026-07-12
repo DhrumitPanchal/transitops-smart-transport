@@ -1,4 +1,4 @@
-import { keysToCamelCase, keysToSnakeCase } from './caseMapper'
+import { keysToCamelCase } from './caseMapper'
 import {
   mapListResponse,
   mapSingleResponse,
@@ -6,14 +6,28 @@ import {
   toApiParams,
 } from './apiEnvelope'
 
+/**
+ * Normalize role: backend uses `code`, mocks use `key`.
+ * Frontend compares against ROLES.* via `key`.
+ */
 export function fromApi(entity) {
   if (entity == null) return entity
-  return keysToCamelCase(entity)
+  const mapped = keysToCamelCase(entity)
+  if (!mapped || typeof mapped !== 'object') return mapped
+
+  const code = mapped.code ?? mapped.key ?? null
+
+  return {
+    ...mapped,
+    code,
+    key: code,
+    permissions: Array.isArray(mapped.permissions) ? mapped.permissions : [],
+  }
 }
 
 export function toApi(entity) {
   if (entity == null) return entity
-  return keysToSnakeCase(entity)
+  return entity
 }
 
 export function fromApiList(payload) {

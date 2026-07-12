@@ -88,7 +88,7 @@ function buildDashboardSummary() {
   )
 
   const openMaintenance = db.maintenance.filter((item) =>
-    [MAINTENANCE_STATUS.OPEN, MAINTENANCE_STATUS.IN_PROGRESS].includes(
+    [MAINTENANCE_STATUS.SCHEDULED, MAINTENANCE_STATUS.IN_PROGRESS].includes(
       item.status,
     ),
   )

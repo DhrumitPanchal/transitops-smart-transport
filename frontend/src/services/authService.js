@@ -1,23 +1,24 @@
 import apiClient from '../api/apiClient'
 import { ENDPOINTS } from '../api/endpoints'
+import { ApiError } from '../api/apiError'
 import { isMockMode } from './serviceMode'
 import { authMockRepository } from '../mocks/repositories/authMockRepository'
-import {
-  fromApiSession,
-  toApiRequest,
-} from '../mappers/authMapper'
-import { fromApiEnvelope } from '../mappers/apiEnvelope'
+import { fromApiSession, toApiRequest } from '../mappers/authMapper'
 
+function notAvailableOnApi(action) {
+  throw new ApiError({
+    status: 501,
+    code: 'NOT_IMPLEMENTED',
+    message: `${action} is not available on the current backend API.`,
+  })
+}
+
+/** Public registration — mock only (backend has no /auth/register). */
 export async function register(payload) {
   if (isMockMode()) {
     return authMockRepository.register(payload)
   }
-
-  const { data } = await apiClient.post(
-    ENDPOINTS.AUTH.REGISTER,
-    toApiRequest(payload),
-  )
-  return fromApiEnvelope(data)
+  return notAvailableOnApi('Register')
 }
 
 export async function login(credentials) {
