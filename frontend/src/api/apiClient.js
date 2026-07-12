@@ -1,6 +1,7 @@
 import axios from 'axios'
 import env from '../config/env'
 import { ApiError } from './apiError'
+import { getSocketId } from '../realtime/socketClient'
 
 let unauthorizedHandler = null
 
@@ -16,6 +17,22 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
+})
+
+apiClient.interceptors.request.use((config) => {
+  const socketId = getSocketId()
+  const headers = config.headers || {}
+
+  if (socketId) {
+    headers['X-Socket-ID'] = socketId
+  } else if (typeof headers.delete === 'function') {
+    headers.delete('X-Socket-ID')
+  } else {
+    delete headers['X-Socket-ID']
+  }
+
+  config.headers = headers
+  return config
 })
 
 apiClient.interceptors.response.use(
