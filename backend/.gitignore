@@ -1,4 +1,8 @@
 flow.md
+auth.md
+db_schema.md
+role.md
+UsersRoles.md
 .env
 node_modules/
 /generated/prisma
