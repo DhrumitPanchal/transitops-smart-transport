@@ -1,11 +1,35 @@
 import { z } from 'zod'
-import { VALIDATION_MESSAGES } from '../constants/validationMessages'
 import { EXPENSE_TYPES } from '../constants/appConstants'
+import { VALIDATION_MESSAGES } from '../constants/validationMessages'
+import {
+  dateField,
+  numberField,
+  oneOfEnum,
+  optionalText,
+  trimmedText,
+} from './common'
 
 export const expenseSchema = z.object({
-  category: z.enum(Object.values(EXPENSE_TYPES), {
-    message: VALIDATION_MESSAGES.CATEGORY_REQUIRED,
+  vehicleId: optionalText(),
+  tripId: optionalText(),
+  expenseType: oneOfEnum(
+    Object.values(EXPENSE_TYPES),
+    VALIDATION_MESSAGES.EXPENSE_TYPE_REQUIRED,
+  ),
+  amount: numberField({
+    exclusiveMin: true,
+    min: 0,
+    requiredMessage: VALIDATION_MESSAGES.AMOUNT_POSITIVE,
+    minMessage: VALIDATION_MESSAGES.AMOUNT_POSITIVE,
   }),
-  amount: z.coerce.number().positive(VALIDATION_MESSAGES.AMOUNT_POSITIVE),
-  date: z.string().min(1, VALIDATION_MESSAGES.DATE_REQUIRED),
+  expenseDate: dateField({
+    requiredMessage: VALIDATION_MESSAGES.EXPENSE_DATE_REQUIRED,
+  }),
+  description: trimmedText({
+    min: 3,
+    max: 500,
+    requiredMessage: VALIDATION_MESSAGES.DESCRIPTION_REQUIRED,
+    minMessage: VALIDATION_MESSAGES.DESCRIPTION_LENGTH,
+    maxMessage: VALIDATION_MESSAGES.DESCRIPTION_LENGTH,
+  }),
 })

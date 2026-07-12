@@ -2,6 +2,8 @@ import { ROLE_LABELS, ROLE_LANDING_ROUTES, ROLES } from '../constants/roles'
 import { getPermissionsForRole } from '../constants/permissions'
 import { STATUS_LABELS } from '../constants/statuses'
 import { ROUTES } from '../constants/routes'
+import { humanizeEnum } from './formatters'
+import { isLicenseExpired, isLicenseExpiringSoon } from './dateHelpers'
 
 export function cn(...classes) {
   return classes.filter(Boolean).join(' ')
@@ -20,7 +22,9 @@ export function isEmpty(value) {
 }
 
 export function getInitials(name = '') {
-  return name
+  if (!name) return ''
+
+  return String(name)
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
@@ -55,14 +59,16 @@ export function getRoleLandingRoute(role) {
 
 export function getStatusLabel(status) {
   if (!status) return '—'
-  return STATUS_LABELS[status] || String(status).replace(/_/g, ' ')
+  return STATUS_LABELS[status] || humanizeEnum(status)
 }
 
 export function getRoleLabel(role) {
   if (!role) return '—'
-  return ROLE_LABELS[role] || String(role).replace(/_/g, ' ')
+  return ROLE_LABELS[role] || humanizeEnum(role)
 }
 
 export function isValidRole(role) {
   return Object.values(ROLES).includes(role)
 }
+
+export { isLicenseExpired, isLicenseExpiringSoon }
