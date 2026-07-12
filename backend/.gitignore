@@ -1,0 +1,4 @@
+flow.md
+.env
+node_modules/
+/generated/prisma
