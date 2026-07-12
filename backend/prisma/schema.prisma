@@ -32,12 +32,13 @@ enum DriverStatus {
 enum TripStatus {
   DRAFT
   DISPATCHED
+  IN_PROGRESS
   COMPLETED
   CANCELLED
 }
 
 enum MaintenanceStatus {
-  OPEN
+  SCHEDULED
   IN_PROGRESS
   COMPLETED
   CANCELLED
@@ -45,9 +46,13 @@ enum MaintenanceStatus {
 
 enum MaintenanceType {
   PREVENTIVE
-  BREAKDOWN
-  SERVICE
+  CORRECTIVE
   INSPECTION
+  OIL_CHANGE
+  TIRE_SERVICE
+  ENGINE_REPAIR
+  BRAKE_SERVICE
+  OTHER
 }
 
 enum ExpenseType {
@@ -136,6 +141,7 @@ model Vehicle {
   manufactureYear    Int
   region             String
   status             VehicleStatus @default(AVAILABLE)
+  isDeleted          Boolean       @default(false)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -177,6 +183,7 @@ model Driver {
   address           String?
   joiningDate       DateTime?    @db.Date
   status            DriverStatus @default(AVAILABLE)
+  isDeleted         Boolean      @default(false)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
@@ -234,19 +241,25 @@ model Trip {
 }
 
 model VehicleMaintenance {
-  id               String             @id @default(uuid()) @db.Uuid
-  vehicleId        String             @db.Uuid
-  maintenanceType  MaintenanceType
-  title            String
-  description      String?
-  vendor           String?
-  cost             Decimal            @db.Decimal(12, 2)
-  startedAt        DateTime?
-  completedAt      DateTime?
-  status           MaintenanceStatus  @default(OPEN)
-  createdBy        String             @db.Uuid
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  id                  String             @id @default(uuid()) @db.Uuid
+  maintenanceNumber   String            @unique
+  vehicleId           String             @db.Uuid
+  maintenanceType     MaintenanceType
+  title               String
+  description         String?
+  serviceCenter       String
+  scheduledDate       DateTime          @db.Date
+  completedDate       DateTime?         @db.Date
+  estimatedCost       Decimal?          @db.Decimal(12, 2)
+  actualCost          Decimal?          @db.Decimal(12, 2)
+  currentOdometer     Decimal           @db.Decimal(10, 2)
+  nextServiceOdometer Decimal?          @db.Decimal(10, 2)
+  remarks             String?
+  status              MaintenanceStatus  @default(SCHEDULED)
+  isDeleted           Boolean           @default(false)
+  createdBy           String             @db.Uuid
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
@@ -256,15 +269,18 @@ model VehicleMaintenance {
 model VehicleFuelLog {
   id            String    @id @default(uuid()) @db.Uuid
   vehicleId     String    @db.Uuid
+  driverId      String    @db.Uuid
   tripId        String?   @db.Uuid
+  fuelStation   String
+  fuelType      String
+  quantity      Decimal   @db.Decimal(10, 2)
+  pricePerUnit  Decimal   @db.Decimal(10, 2)
+  totalAmount   Decimal   @db.Decimal(12, 2)
+  odometerReading Decimal @db.Decimal(10, 2)
   fuelDate      DateTime  @db.Date
-  liters        Decimal   @db.Decimal(10, 2)
-  pricePerLiter Decimal   @db.Decimal(10, 2)
-  totalCost     Decimal   @db.Decimal(12, 2)
-  odometer      Decimal?  @db.Decimal(10, 2)
-  station       String?
-  invoiceNumber String?
+  receiptNumber String?
   remarks       String?
+  isDeleted     Boolean   @default(false)
   createdBy     String    @db.Uuid
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -276,20 +292,25 @@ model VehicleFuelLog {
 }
 
 model Expense {
-  id           String      @id @default(uuid()) @db.Uuid
-  tripId       String?     @db.Uuid
-  vehicleId    String      @db.Uuid
-  expenseType  ExpenseType
-  amount       Decimal     @db.Decimal(12, 2)
-  expenseDate  DateTime    @db.Date
-  description  String?
-  billNumber   String?
-  createdBy    String      @db.Uuid
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id            String      @id @default(uuid()) @db.Uuid
+  vehicleId     String?     @db.Uuid
+  driverId      String?     @db.Uuid
+  tripId        String?     @db.Uuid
+  category      String
+  title         String
+  amount        Decimal     @db.Decimal(12, 2)
+  expenseDate   DateTime    @db.Date
+  vendor        String?
+  paymentMethod String
+  receiptUrl    String?
+  remarks       String?
+  isDeleted     Boolean     @default(false)
+  createdBy     String      @db.Uuid
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   trip    Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
-  vehicle Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   @@map("expenses")
 }
